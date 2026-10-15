@@ -1,8 +1,9 @@
-// The CMS is published as minamo from 0.10.0, and was @o-a/cms-agent
-// up to 0.9.x. The last @o-a/cms-agent release's npm run upgrade moves
-// a site over to minamo; what's here makes sure the old name doesn't
-// linger in vhost/package.json once it has.
-export const PACKAGE_NAME = 'minamo';
+// The CMS is published as @minamocms/minamo from 0.10.1, and was
+// @o-a/cms-agent up to 0.9.x (0.10.0 was never published: npm refused
+// the unscoped name "minamo"). From 0.9.3, @o-a/cms-agent's npm run
+// upgrade moves a site over; what's here makes sure the old name
+// doesn't linger in vhost/package.json once it has.
+export const PACKAGE_NAME = '@minamocms/minamo';
 export const FORMER_PACKAGE_NAMES = ['@o-a/cms-agent'];
 
 // vhost/package.json's dependencies with the CMS at the given version,

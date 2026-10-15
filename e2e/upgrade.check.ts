@@ -16,13 +16,14 @@ import { TEST_IDENTITY_ENV } from '../test/helpers/tmp-site.ts';
 // then upgraded with the real npm view / pack / install, including the
 // hand-over to the newly installed version's own --finish step. Then a
 // site on the last @o-a/cms-agent release (packed from its git tag)
-// upgrades the same way, and lands on minamo.
+// upgrades the same way, and lands on @minamocms/minamo.
 
 const repoRoot = join(import.meta.dirname, '..');
 const run = promisify(execFile);
 const MARKER = 'upgrade-check-marker';
+const PACKAGE = '@minamocms/minamo';
 // The last release under the package's old name.
-const LEGACY = { name: '@o-a/cms-agent', version: '0.9.2', tag: 'v0.9.2' };
+const LEGACY = { name: '@o-a/cms-agent', version: '0.9.3', tag: 'v0.9.3' };
 
 function bumpPatch(version: string): string {
   const [major, minor, patch] = version.split('.').map(Number) as [number, number, number];
@@ -103,11 +104,10 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
     const legacyTarball = packLegacy(scratch, tarballs);
 
     // --- A stand-in npm registry ---
-    // It answers for minamo and @o-a/cms-agent, and passes every other
-    // request through to the real registry: minamo isn't scoped, so npm
-    // can't be pointed at a stand-in for it alone.
+    // It answers for @minamocms/minamo and @o-a/cms-agent, and passes
+    // every other request through to the real registry.
     const packages: Record<string, { latest: string; versions: Record<string, string> }> = {
-      minamo: { latest: next, versions: { [current]: currentTarball, [next]: nextTarball } },
+      [PACKAGE]: { latest: next, versions: { [current]: currentTarball, [next]: nextTarball } },
       [LEGACY.name]: { latest: LEGACY.version, versions: { [LEGACY.version]: legacyTarball } },
     };
     server = createServer((request, response) => {
@@ -162,7 +162,7 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
     await t.test('scaffold a site and install the current version from the stand-in registry', async () => {
       execFileSync('node', [join(repoRoot, 'dist', 'create-site', 'cli.js'), site], { stdio: 'ignore' });
       await run('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhost, env });
-      assert.equal(installedVersion(vhost, 'minamo'), current);
+      assert.equal(installedVersion(vhost, PACKAGE), current);
     });
 
     const commitsBefore = execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: site }).toString().trim();
@@ -176,15 +176,15 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
       assert.match(stdout, new RegExp(`Upgrading the CMS from ${current.replace(/\./g, '\\.')} to ${next.replace(/\./g, '\\.')}`));
       assert.match(stdout, new RegExp(`${MARKER} in the changelog`), 'the new version\'s changelog is shown before asking');
       assert.match(stdout, /Cancelled\. Nothing was changed\./);
-      assert.equal(dependencies(vhost).minamo, current);
+      assert.equal(dependencies(vhost)[PACKAGE], current);
     });
 
     await t.test('upgrading installs the next version, which puts back its own files, and commits nothing', async () => {
       const { stdout } = await run('npm', ['run', 'upgrade', '--silent', '--', '--yes'], { cwd: vhost, env });
       assert.match(stdout, new RegExp(`The CMS here is now ${next.replace(/\./g, '\\.')}`));
       assert.match(stdout, /updated\s+vhost\/Dockerfile/);
-      assert.equal(dependencies(vhost).minamo, next);
-      assert.equal(installedVersion(vhost, 'minamo'), next);
+      assert.equal(dependencies(vhost)[PACKAGE], next);
+      assert.equal(installedVersion(vhost, PACKAGE), next);
       assert.match(readFileSync(join(vhost, 'Dockerfile'), 'utf-8'), new RegExp(MARKER), 'the new version\'s Dockerfile is in place');
       assert.ok(existsSync(join(vhost, 'server.js')));
       assert.equal(execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: site }).toString().trim(), commitsBefore, 'nothing committed');
@@ -200,14 +200,14 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
     // server.js name the old package.
     const legacySite = join(scratch, 'legacy-site');
     const legacyVhost = join(legacySite, 'vhost');
-    await t.test(`a site on ${LEGACY.name} ${LEGACY.version} upgrades onto minamo`, async () => {
+    await t.test(`a site on ${LEGACY.name} ${LEGACY.version} upgrades onto ${PACKAGE}`, async () => {
       execFileSync('node', [join(repoRoot, 'dist', 'create-site', 'cli.js'), legacySite], { stdio: 'ignore' });
       const pkgPath = join(legacyVhost, 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
       pkg.dependencies = { [LEGACY.name]: LEGACY.version };
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
       const serverJs = join(legacyVhost, 'server.js');
-      writeFileSync(serverJs, readFileSync(serverJs, 'utf-8').replace("from 'minamo'", `from '${LEGACY.name}'`));
+      writeFileSync(serverJs, readFileSync(serverJs, 'utf-8').replace(`from '${PACKAGE}'`, `from '${LEGACY.name}'`));
       execFileSync('git', ['commit', '--quiet', '-am', 'as the last @o-a/cms-agent release made it'], { cwd: legacySite, env: { ...process.env, ...TEST_IDENTITY_ENV } });
       await run('npm', ['install', '--no-audit', '--no-fund'], { cwd: legacyVhost, env });
       assert.equal(installedVersion(legacyVhost, LEGACY.name), LEGACY.version);
@@ -215,12 +215,12 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
       const { stdout } = await run('npm', ['run', 'upgrade', '--silent', '--', '--yes'], { cwd: legacyVhost, env });
       assert.match(stdout, /The CMS is now called Minamo/);
       assert.match(stdout, new RegExp(`The CMS here is now ${next.replace(/\./g, '\\.')}`));
-      assert.deepEqual(dependencies(legacyVhost), { minamo: next }, 'the dependency moved over, the old name gone');
-      assert.equal(installedVersion(legacyVhost, 'minamo'), next);
+      assert.deepEqual(dependencies(legacyVhost), { [PACKAGE]: next }, 'the dependency moved over, the old name gone');
+      assert.equal(installedVersion(legacyVhost, PACKAGE), next);
       assert.ok(!existsSync(join(legacyVhost, 'node_modules', '@o-a', 'cms-agent')), 'the old package is uninstalled');
-      assert.match(readFileSync(serverJs, 'utf-8'), /from 'minamo'/, 'server.js imports the new name');
+      assert.match(readFileSync(serverJs, 'utf-8'), new RegExp(`from '${PACKAGE}'`), 'server.js imports the new name');
       // And the site starts: server.js's import resolves.
-      await run('node', ['--input-type=module', '-e', "await import('minamo')"], { cwd: legacyVhost });
+      await run('node', ['--input-type=module', '-e', `await import('${PACKAGE}')`], { cwd: legacyVhost });
     });
   } finally {
     await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));

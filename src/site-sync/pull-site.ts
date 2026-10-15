@@ -7,6 +7,7 @@ import { listFilesRecursively } from '../services/fs-walk.ts';
 import { sanitisePath } from '../services/path-safety.ts';
 import { loadRedirects, serialiseRedirects } from '../services/redirects.ts';
 import { rebuildIndex } from '../search/rebuild-index.ts';
+import { PACKAGE_NAME } from '../upgrade/package-names.ts';
 import { fetchLiveContent, fetchLiveMedia, readCapabilities } from './live-content.ts';
 import { RemoteSite, SiteSyncError } from './remote-site.ts';
 import { hashOf, sameRedirects, settingsHash, updateSyncRecord } from './sync-record.ts';
@@ -71,7 +72,7 @@ export async function checkPullableSite(siteUrl: string, fetchImpl?: typeof fetc
   if (capabilities.contentSchemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new SiteSyncError(
       'newer-schema',
-      `The live site uses content schema ${capabilities.contentSchemaVersion} (agent ${capabilities.agentVersion}), newer than this site's ${CURRENT_SCHEMA_VERSION}. Upgrade minamo here first.`,
+      `The live site uses content schema ${capabilities.contentSchemaVersion} (agent ${capabilities.agentVersion}), newer than this site's ${CURRENT_SCHEMA_VERSION}. Upgrade ${PACKAGE_NAME} here first.`,
     );
   }
 }

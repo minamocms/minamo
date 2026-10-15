@@ -1,6 +1,6 @@
 {
-  "name": "minamo",
-  "version": "0.10.0",
+  "name": "@minamocms/minamo",
+  "version": "0.10.1",
   "type": "module",
   "publishConfig": {
     "access": "public"

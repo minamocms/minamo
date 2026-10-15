@@ -4,14 +4,27 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-10-15
+## [0.10.1] - 2026-10-15
 
 ### Changed
 
-- **Published as `minamo`.** The CMS is now called Minamo, and this package replaces `@o-a/cms-agent`. New sites depend on `minamo` and their `vhost/server.js` imports it. A site on `@o-a/cms-agent` moves over with `npm run upgrade` from 0.9.2 (on 0.9.1 or earlier, run `npm install @o-a/cms-agent@0.9.2 --save-exact` in `vhost/` first): its dependency and `server.js` are switched to the new name, then test and `npm run push --cms` as for any upgrade. The licence is unchanged (FSL-1.1-ALv2) and now named in `package.json`.
+- **Published as `@minamocms/minamo`**, the first release under the new name, with everything listed under 0.10.0. 0.10.0 was tagged but never published: npm refused the unscoped name `minamo` as too like existing packages' names. Start a new site with `npx -p @minamocms/minamo create-site my-site`.
+- **Moving a site from `@o-a/cms-agent`:** from `vhost/`, run `npm run upgrade`. On 0.9.3 that moves the site over to `@minamocms/minamo`, switching its dependency and `server.js` to the new name; on 0.6.0 to 0.9.2 it first upgrades to 0.9.3, so run it a second time. On 0.5.x, run `npm install @o-a/cms-agent@0.9.3 --save-exact` and `npx upgrade-site --finish` first. Then test and `npm run push --cms` as for any upgrade.
+
+## [0.10.0] - 2026-10-15 (not published)
+
+### Changed
+
+- **Renamed to Minamo.** The CMS is now called Minamo, and this package replaces `@o-a/cms-agent`. New sites depend on it and their `vhost/server.js` imports it. The licence is unchanged (FSL-1.1-ALv2) and now named in `package.json`.
 - **A redeploy also refreshes `vhost/server.js`** on the live volume, alongside the installed CMS, since it imports the CMS by name. Nothing else on the volume changes.
 - **New sites' starter content is Minamo's**, in place of Granite CMS: its copy, logo, page titles and footer, and the comparison section's `minamo`/`minamoLabel` settings (were `granite`/`graniteLabel`; existing sites' themes are their own and unchanged). Its sample commands are real ones, and its GitHub link is the framework's repository. A live site that isn't a CMS site is now reported as "not a Minamo site".
 - Commits the CMS makes itself (checkpoints, and a recovered `.git` on first boot) are authored as `Minamo` in place of `CMS Agent`.
+
+## [0.9.3] - 2026-10-15
+
+### Changed
+
+- **`npm run upgrade` looks for the CMS as `@minamocms/minamo`.** npm refused the unscoped name `minamo`, so 0.9.2's handover never finds anything to move to. From 0.9.3, once `@minamocms/minamo` has a newer version, the upgrade moves the site over to it.
 
 ## [0.9.2] - 2026-10-15
 

@@ -97,7 +97,7 @@ Run `npm run push -- --dry-run` to see what would change, without changing anyth
 
 1. **Upgrade on your computer:** `npm run upgrade` (or `npm run upgrade -- 0.6.1` for a particular version). It shows what is new, asks before changing anything, installs it, updates the CMS's own files in `vhost/` (`Dockerfile`, `docker-entrypoint.sh`, `server.js`, `.dockerignore`, and the scripts in `package.json`, keeping any scripts of your own), updates your content to the new format if it changed, and checks your site. Nothing is committed: review it with `git diff`.
 
-   The CMS was published as `@o-a/cms-agent` up to 0.9.x, and is `minamo` from 0.10.0. From 0.9.2, `npm run upgrade` moves a site over to `minamo` by itself. On 0.6.0 to 0.9.1, run `npm install @o-a/cms-agent@0.9.2 --save-exact` in `vhost/` first. Sites on 0.5.x don't have `npm run upgrade` yet: from `vhost/`, `npm install @o-a/cms-agent@0.9.2 --save-exact`, then `npx upgrade-site --finish`, then `npm run upgrade`.
+   The CMS was published as `@o-a/cms-agent` up to 0.9.x, and is `@minamocms/minamo` from 0.10.1. On 0.9.3, `npm run upgrade` moves a site over to `@minamocms/minamo` by itself. On 0.6.0 to 0.9.2, it first upgrades to 0.9.3: run it a second time to move over. Sites on 0.5.x don't have `npm run upgrade` yet: from `vhost/`, `npm install @o-a/cms-agent@0.9.3 --save-exact`, then `npx upgrade-site --finish`, then `npm run upgrade`.
 2. **Test it:** `npm run dev`, and look at your site.
 3. **Put it live:** `npm run push`. Because your CMS is now newer than the live site's, push offers one more choice:
 

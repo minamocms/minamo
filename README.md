@@ -46,7 +46,7 @@ Minamo is the combination neither of those is:
 ## Quick start
 
 ```
-npx -p minamo create-site my-site
+npx -p @minamocms/minamo create-site my-site
 cd my-site/vhost
 npm install
 npm start
@@ -73,7 +73,7 @@ my-site/
   vhost/     site.config.json, package.json, server.js
 ```
 
-This repository (the framework itself, the `minamo` package) is developed
+This repository (the framework itself, the `@minamocms/minamo` package) is developed
 separately and installed as a versioned dependency - see [`docs/cms-build-plan.md`](docs/cms-build-plan.md)
 for the full architecture and the reasoning behind it.
 
@@ -109,9 +109,11 @@ works too.
 ## Upgrading from `@o-a/cms-agent`
 
 Up to 0.9.x this package was published as `@o-a/cms-agent` (and the
-project was called Granite CMS). From `vhost/`, run `npm run upgrade`: from
-0.9.2 it moves the site over to `minamo`. On an older version, run
-`npm install @o-a/cms-agent@0.9.2 --save-exact` first.
+project was called Granite CMS). From `vhost/`, run `npm run upgrade`: on
+0.9.3 it moves the site over to `@minamocms/minamo`, and on 0.6.0 to 0.9.2 it first
+reaches 0.9.3, so run it a second time. On 0.5.x, run
+`npm install @o-a/cms-agent@0.9.3 --save-exact` and
+`npx upgrade-site --finish` first.
 
 ## Project status
 
