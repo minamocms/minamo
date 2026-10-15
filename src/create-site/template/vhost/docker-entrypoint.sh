@@ -17,14 +17,15 @@ SITE="${CMS_SITE_DIR:-/site}"
 if [ ! -d "$SITE/vhost" ]; then
   cp -r "$SEED/." "$SITE/"
 else
-  # Every later boot: refresh the agent itself from the image, and
+  # Every later boot: refresh the CMS itself from the image, and
   # nothing else. Content, drafts, media and theme on the volume are
-  # the live site's own and are never touched - but the installed
-  # @o-a/cms-agent is code, not content, so without this a redeploy
-  # built from a newer agent would keep running the old one from the
-  # volume forever. Only the dependency manifest and its installed
-  # packages are copied; site.config.json (tokens) and server.js stay
-  # as they are on the volume.
+  # the live site's own and are never touched - but the installed CMS
+  # is code, not content, so without this a redeploy built from a newer
+  # version would keep running the old one from the volume forever.
+  # Only the dependency manifest, its installed packages and server.js
+  # (the CMS's own, which imports it by name: the package was renamed
+  # from @o-a/cms-agent to minamo) are copied; site.config.json
+  # (tokens) stays as it is on the volume.
   #
   # This leaves vhost/package.json (and package-lock.json) showing as
   # modified in the volume's git working tree after an upgrade. That is
@@ -36,6 +37,7 @@ else
   fi
   rm -rf "$SITE/vhost/node_modules"
   cp -r "$SEED/vhost/node_modules" "$SITE/vhost/node_modules"
+  cp "$SEED/vhost/server.js" "$SITE/vhost/server.js"
 fi
 
 # The site root must be a real git repository (services/startup-checks.ts) -
@@ -47,8 +49,8 @@ fi
 if [ ! -d "$SITE/.git" ]; then
   git -C "$SITE" init --quiet
   git -C "$SITE" add -A
-  GIT_AUTHOR_NAME="cms-agent" GIT_AUTHOR_EMAIL="cms-agent@localhost" \
-    GIT_COMMITTER_NAME="cms-agent" GIT_COMMITTER_EMAIL="cms-agent@localhost" \
+  GIT_AUTHOR_NAME="Minamo" GIT_AUTHOR_EMAIL="minamo@localhost" \
+    GIT_COMMITTER_NAME="Minamo" GIT_COMMITTER_EMAIL="minamo@localhost" \
     git -C "$SITE" commit --quiet -m "chore: initial scaffold (recovered - .git was not part of the deploy upload)"
 fi
 

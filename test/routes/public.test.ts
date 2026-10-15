@@ -19,7 +19,7 @@ const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
 // commit needed: public/preview routes only ever read the working
 // tree, never git history).
 function buildPublicTestServer() {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-public-test-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-public-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
 

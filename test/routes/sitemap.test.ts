@@ -17,7 +17,7 @@ const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
 // page "hidden.json", a nested child page, a 404.json) that this
 // route's filtering logic needs to be exercised against.
 function buildSitemapTestServer(options: { trustProxy?: boolean } = {}) {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-sitemap-test-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-sitemap-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
   if (options.trustProxy) {

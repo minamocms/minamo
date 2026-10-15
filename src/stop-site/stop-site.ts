@@ -11,7 +11,7 @@ export type StopSiteResult =
 export interface StopSiteDeps {
   isAlive: (pid: number) => boolean;
   signal: (pid: number) => void;
-  // Whether a cms-agent site is answering on this port.
+  // Whether a Minamo site is answering on this port.
   isSiteListening: (port: number) => Promise<boolean>;
   sleep: (ms: number) => Promise<void>;
   timeoutMs: number;

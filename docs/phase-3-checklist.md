@@ -659,7 +659,9 @@ Decided by the owner (2026-10-15): the product is Minamo, and the framework is p
 
 | # | Criterion | Proof |
 |---|---|---|
-| AH1 | `npm run upgrade` on `@o-a/cms-agent` moves to `minamo` once it has a newer version (swapping the dependency, keeping the site's own, handing over to minamo's finish step), and upgrades as before until then | `test/upgrade/upgrade.test.ts :: an upgrade moves to the minamo package ...`, `:: moving to minamo swaps the dependency over ...`; `e2e/upgrade.check.ts` (unchanged path) |
+| AH1 | `npm run upgrade` on `@o-a/cms-agent` 0.9.2 moves to `minamo` once it has a newer version (swapping the dependency, keeping the site's own, handing over to minamo's finish step), and upgrades as before until then | 0.9.2's own unit tests (commit a9a3598); `e2e/upgrade.check.ts :: a site on @o-a/cms-agent 0.9.2 upgrades onto minamo` (the real tagged build, packed and installed) |
+| AH2 | The package is `minamo` (licence `FSL-1.1-ALv2`): new sites depend on it and import it; finishing an upgrade leaves only `minamo` in `vhost/package.json` and puts back a `server.js` importing it; push's version check reads either name | `test/upgrade/upgrade.test.ts :: a site still on @o-a/cms-agent finishes its upgrade on minamo ...`, `:: upgradedDependencies names the CMS once ...`; `test/create-site/generate-site.test.ts :: scaffoldSite pins minamo ...`; `test/site-sync/deploy.test.ts :: deployedVersionProblem ...` |
+| AH3 | A redeploy refreshes `vhost/server.js` on the live volume along with the installed CMS, so a live site moved to `minamo` still starts | `test/create-site/generate-site.test.ts` (docker-entrypoint.sh refresh test: server.js follows the image) |
 
 ## Future considerations (not scoped, for later discussion)
 

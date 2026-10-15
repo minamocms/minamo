@@ -2,22 +2,27 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { promisify } from 'node:util';
+import { TEST_IDENTITY_ENV } from '../test/helpers/tmp-site.ts';
 
 // npm run upgrade, for real: two real packed versions of this package -
 // the current build, and a "next version" made from it with a changed
 // Dockerfile and its own changelog entry - served by a stand-in npm
 // registry on localhost. A site is scaffolded on the current version,
 // then upgraded with the real npm view / pack / install, including the
-// hand-over to the newly installed version's own --finish step.
+// hand-over to the newly installed version's own --finish step. Then a
+// site on the last @o-a/cms-agent release (packed from its git tag)
+// upgrades the same way, and lands on minamo.
 
 const repoRoot = join(import.meta.dirname, '..');
 const run = promisify(execFile);
 const MARKER = 'upgrade-check-marker';
+// The last release under the package's old name.
+const LEGACY = { name: '@o-a/cms-agent', version: '0.9.2', tag: 'v0.9.2' };
 
 function bumpPatch(version: string): string {
   const [major, minor, patch] = version.split('.').map(Number) as [number, number, number];
@@ -47,12 +52,32 @@ function manifestFor(tarball: string, url: string): Record<string, unknown> {
   };
 }
 
+// The last @o-a/cms-agent release, built from its own tagged source.
+function packLegacy(scratch: string, destination: string): string {
+  const source = join(scratch, 'legacy');
+  mkdirSync(source);
+  execFileSync('sh', ['-c', `git archive ${LEGACY.tag} | tar -x -C "${source}"`], { cwd: repoRoot });
+  symlinkSync(join(repoRoot, 'node_modules'), join(source, 'node_modules'));
+  const [result] = JSON.parse(
+    execFileSync('npm', ['pack', '--json', '--pack-destination', destination], { cwd: source, stdio: ['ignore', 'pipe', 'ignore'] }).toString('utf-8'),
+  ) as Array<{ filename: string }>;
+  return join(destination, result?.filename as string);
+}
+
+function dependencies(vhost: string): Record<string, string> {
+  return (JSON.parse(readFileSync(join(vhost, 'package.json'), 'utf-8')) as { dependencies: Record<string, string> }).dependencies;
+}
+
+function installedVersion(vhost: string, name: string): string {
+  return (JSON.parse(readFileSync(join(vhost, 'node_modules', ...name.split('/'), 'package.json'), 'utf-8')) as { version: string }).version;
+}
+
 test('npm run upgrade: shows the changelog, installs the next version, and that version puts back its own files', async (t) => {
   execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'ignore' });
-  const scratch = mkdtempSync(join(tmpdir(), 'cms-upgrade-check-'));
+  const scratch = mkdtempSync(join(tmpdir(), 'minamo-upgrade-check-'));
   let server: Server | undefined;
   try {
-    // --- Two versions ---
+    // --- Two versions, and the last one under the old name ---
     const current = (JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')) as { version: string }).version;
     const next = bumpPatch(current);
     const tarballs = join(scratch, 'tarballs');
@@ -75,43 +100,56 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
       readFileSync(changelogPath, 'utf-8').replace('# Changelog', `# Changelog\n\n## [${next}] - test\n\n- ${MARKER} in the changelog.\n`),
     );
     const nextTarball = pack(nextPackage, tarballs);
+    const legacyTarball = packLegacy(scratch, tarballs);
 
     // --- A stand-in npm registry ---
+    // It answers for minamo and @o-a/cms-agent, and passes every other
+    // request through to the real registry: minamo isn't scoped, so npm
+    // can't be pointed at a stand-in for it alone.
+    const packages: Record<string, { latest: string; versions: Record<string, string> }> = {
+      minamo: { latest: next, versions: { [current]: currentTarball, [next]: nextTarball } },
+      [LEGACY.name]: { latest: LEGACY.version, versions: { [LEGACY.version]: legacyTarball } },
+    };
     server = createServer((request, response) => {
-      const url = request.url ?? '';
-      if (url.endsWith('.tgz')) {
-        const file = url.includes(next) ? nextTarball : currentTarball;
+      const url = decodeURIComponent(request.url ?? '');
+      const address = server?.address() as { port: number };
+      const base = `http://127.0.0.1:${address.port}`;
+      if (url.startsWith('/tarballs/')) {
         response.writeHead(200, { 'content-type': 'application/octet-stream' });
-        response.end(readFileSync(file));
+        response.end(readFileSync(join(tarballs, url.slice('/tarballs/'.length))));
         return;
       }
-      if (decodeURIComponent(url).startsWith('/@o-a/cms-agent')) {
-        const address = server?.address() as { port: number };
-        const base = `http://127.0.0.1:${address.port}`;
+      const name = url.slice(1).split('?')[0] as string;
+      const known = packages[name];
+      if (known) {
         response.writeHead(200, { 'content-type': 'application/json' });
         response.end(
           JSON.stringify({
-            name: '@o-a/cms-agent',
-            'dist-tags': { latest: next },
-            versions: {
-              [current]: manifestFor(currentTarball, `${base}/cms-agent-${current}.tgz`),
-              [next]: manifestFor(nextTarball, `${base}/cms-agent-${next}.tgz`),
-            },
+            name,
+            'dist-tags': { latest: known.latest },
+            versions: Object.fromEntries(
+              Object.entries(known.versions).map(([version, file]) => [version, manifestFor(file, `${base}/tarballs/${basename(file)}`)]),
+            ),
           }),
         );
         return;
       }
-      response.writeHead(404);
-      response.end();
+      fetch(`https://registry.npmjs.org${request.url ?? ''}`, { headers: { accept: request.headers.accept ?? 'application/json' } })
+        .then(async (upstream) => {
+          response.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/json' });
+          response.end(Buffer.from(await upstream.arrayBuffer()));
+        })
+        .catch(() => {
+          response.writeHead(502);
+          response.end();
+        });
     });
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as { port: number };
-    // Only this package comes from the stand-in; everything else from
-    // the real registry. A private cache keeps the stand-in's versions
-    // out of the real one.
+    // A private cache keeps the stand-in's versions out of the real one.
     const env = {
       ...process.env,
-      'npm_config_@o-a:registry': `http://127.0.0.1:${port}/`,
+      npm_config_registry: `http://127.0.0.1:${port}/`,
       npm_config_cache: join(scratch, 'npm-cache'),
     };
 
@@ -124,10 +162,7 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
     await t.test('scaffold a site and install the current version from the stand-in registry', async () => {
       execFileSync('node', [join(repoRoot, 'dist', 'create-site', 'cli.js'), site], { stdio: 'ignore' });
       await run('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhost, env });
-      const installed = JSON.parse(readFileSync(join(vhost, 'node_modules', '@o-a', 'cms-agent', 'package.json'), 'utf-8')) as {
-        version: string;
-      };
-      assert.equal(installed.version, current);
+      assert.equal(installedVersion(vhost, 'minamo'), current);
     });
 
     const commitsBefore = execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: site }).toString().trim();
@@ -141,20 +176,15 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
       assert.match(stdout, new RegExp(`Upgrading the CMS from ${current.replace(/\./g, '\\.')} to ${next.replace(/\./g, '\\.')}`));
       assert.match(stdout, new RegExp(`${MARKER} in the changelog`), 'the new version\'s changelog is shown before asking');
       assert.match(stdout, /Cancelled\. Nothing was changed\./);
-      assert.equal((JSON.parse(readFileSync(join(vhost, 'package.json'), 'utf-8')) as { dependencies: Record<string, string> }).dependencies['@o-a/cms-agent'], current);
+      assert.equal(dependencies(vhost).minamo, current);
     });
 
     await t.test('upgrading installs the next version, which puts back its own files, and commits nothing', async () => {
       const { stdout } = await run('npm', ['run', 'upgrade', '--silent', '--', '--yes'], { cwd: vhost, env });
       assert.match(stdout, new RegExp(`The CMS here is now ${next.replace(/\./g, '\\.')}`));
       assert.match(stdout, /updated\s+vhost\/Dockerfile/);
-
-      const pkg = JSON.parse(readFileSync(join(vhost, 'package.json'), 'utf-8')) as { dependencies: Record<string, string> };
-      assert.equal(pkg.dependencies['@o-a/cms-agent'], next);
-      const installed = JSON.parse(readFileSync(join(vhost, 'node_modules', '@o-a', 'cms-agent', 'package.json'), 'utf-8')) as {
-        version: string;
-      };
-      assert.equal(installed.version, next);
+      assert.equal(dependencies(vhost).minamo, next);
+      assert.equal(installedVersion(vhost, 'minamo'), next);
       assert.match(readFileSync(join(vhost, 'Dockerfile'), 'utf-8'), new RegExp(MARKER), 'the new version\'s Dockerfile is in place');
       assert.ok(existsSync(join(vhost, 'server.js')));
       assert.equal(execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: site }).toString().trim(), commitsBefore, 'nothing committed');
@@ -163,6 +193,34 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
     await t.test('running it again finds nothing to do', async () => {
       const { stdout } = await run('npm', ['run', 'upgrade', '--silent', '--', '--yes', '--force'], { cwd: vhost, env });
       assert.match(stdout, new RegExp(`Already on ${next.replace(/\./g, '\\.')}, the latest`));
+    });
+
+    // --- A site on the last @o-a/cms-agent release ---
+    // Shaped as that release scaffolded it: its dependency and its
+    // server.js name the old package.
+    const legacySite = join(scratch, 'legacy-site');
+    const legacyVhost = join(legacySite, 'vhost');
+    await t.test(`a site on ${LEGACY.name} ${LEGACY.version} upgrades onto minamo`, async () => {
+      execFileSync('node', [join(repoRoot, 'dist', 'create-site', 'cli.js'), legacySite], { stdio: 'ignore' });
+      const pkgPath = join(legacyVhost, 'package.json');
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
+      pkg.dependencies = { [LEGACY.name]: LEGACY.version };
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+      const serverJs = join(legacyVhost, 'server.js');
+      writeFileSync(serverJs, readFileSync(serverJs, 'utf-8').replace("from 'minamo'", `from '${LEGACY.name}'`));
+      execFileSync('git', ['commit', '--quiet', '-am', 'as the last @o-a/cms-agent release made it'], { cwd: legacySite, env: { ...process.env, ...TEST_IDENTITY_ENV } });
+      await run('npm', ['install', '--no-audit', '--no-fund'], { cwd: legacyVhost, env });
+      assert.equal(installedVersion(legacyVhost, LEGACY.name), LEGACY.version);
+
+      const { stdout } = await run('npm', ['run', 'upgrade', '--silent', '--', '--yes'], { cwd: legacyVhost, env });
+      assert.match(stdout, /The CMS is now called Minamo/);
+      assert.match(stdout, new RegExp(`The CMS here is now ${next.replace(/\./g, '\\.')}`));
+      assert.deepEqual(dependencies(legacyVhost), { minamo: next }, 'the dependency moved over, the old name gone');
+      assert.equal(installedVersion(legacyVhost, 'minamo'), next);
+      assert.ok(!existsSync(join(legacyVhost, 'node_modules', '@o-a', 'cms-agent')), 'the old package is uninstalled');
+      assert.match(readFileSync(serverJs, 'utf-8'), /from 'minamo'/, 'server.js imports the new name');
+      // And the site starts: server.js's import resolves.
+      await run('node', ['--input-type=module', '-e', "await import('minamo')"], { cwd: legacyVhost });
     });
   } finally {
     await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));

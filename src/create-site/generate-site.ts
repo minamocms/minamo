@@ -4,6 +4,7 @@ import { basename, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { CHECKPOINT_AUTHOR } from '../services/checkpoint.ts';
 import { commitPaths } from '../services/git.ts';
+import { PACKAGE_NAME } from '../upgrade/package-names.ts';
 
 // This file's own bundled template (dist/create-site/template, copied
 // there by `npm run build`'s cp step) - the agent's own asset, not
@@ -37,7 +38,7 @@ export function generateToken(): { raw: string; hash: string } {
 // rather than the agent inferring anything (constraint 2 stays intact:
 // the site root is always explicit, never assumed from the agent's own
 // location).
-export const SERVER_JS = `import { startServer } from '@o-a/cms-agent';
+export const SERVER_JS = `import { startServer } from '${PACKAGE_NAME}';
 import { join } from 'node:path';
 
 await startServer(join(import.meta.dirname, '..'), { tunnel: process.argv.includes('--tunnel') });
@@ -178,7 +179,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump
           // can be breaking (build plan's own word is "pinned").
-          '@o-a/cms-agent': readAgentVersion(),
+          [PACKAGE_NAME]: readAgentVersion(),
         },
       },
       null,

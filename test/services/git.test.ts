@@ -157,7 +157,7 @@ test('commitPaths produces exactly one commit with the supplied author, not a fi
 
 test('commitPaths succeeds even with no host git identity configured (HOME redirected to an empty dir)', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true });
-  const emptyHome = mkdtempSync(join(tmpdir(), 'cms-agent-test-empty-home-'));
+  const emptyHome = mkdtempSync(join(tmpdir(), 'minamo-test-empty-home-'));
   const originalHome = process.env.HOME;
   try {
     process.env.HOME = emptyHome;

@@ -22,7 +22,7 @@ function git(siteRoot: string, args: string[]): string {
 }
 
 function buildThemeTestServer() {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-theme-files-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-theme-files-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   writeFileSync(join(siteRoot, 'theme', '.DS_Store'), 'finder junk');
   writeJson(siteRoot, 'vhost/site.config.json', {

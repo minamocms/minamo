@@ -22,7 +22,7 @@ function hashOf(token: string): string {
 // rendering a specific historical revision, so (unlike preview.test.ts)
 // tests here need real git history, not just an uncommitted working tree.
 function buildPreviewRevisionTestServer() {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-preview-revision-test-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-preview-revision-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
   writeJson(siteRoot, 'vhost/site.config.json', {

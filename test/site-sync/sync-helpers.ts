@@ -36,7 +36,7 @@ export async function startLiveSite(
 }
 
 function setUpLiveSite(): string {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-pull-live-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-pull-live-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   git(siteRoot, ['init', '--quiet']);
   writeJson(siteRoot, 'vhost/site.config.json', {
@@ -62,7 +62,7 @@ function setUpLiveSite(): string {
 // The local copy: a committed git repo with its own theme, one page the
 // live site doesn't have, and a stale draft.
 export function createLocalSite(): string {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-pull-local-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-pull-local-'));
   cpSync(join(FIXTURE_SITE, 'theme'), join(siteRoot, 'theme'), { recursive: true });
   writeJson(siteRoot, 'content/pages/local-only.json', { schemaVersion: 7, title: 'Local only' });
   writeJson(siteRoot, 'content/drafts/pages/stale-draft.json', { schemaVersion: 7, title: 'Stale' });

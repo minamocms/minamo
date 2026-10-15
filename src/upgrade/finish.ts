@@ -1,6 +1,7 @@
 import { loadSiteConfig } from '../config.ts';
 import { SCAFFOLD_SCRIPTS, SERVER_JS, TEMPLATE_ROOT } from '../create-site/generate-site.ts';
 import { CURRENT_SCHEMA_VERSION, migrations } from '../migrations/index.ts';
+import { readAgentVersion } from '../routes/capabilities.ts';
 import { CHECKPOINT_AUTHOR } from '../services/checkpoint.ts';
 import { MigrationError, runMigrations } from '../services/migration-runner.ts';
 import { loadThemeSchemas } from '../services/theme-schemas.ts';
@@ -23,7 +24,7 @@ export interface FinishUpgradeResult {
 // which the version upgraded from couldn't have known about. Nothing is
 // committed: the developer reviews and commits, as after a pull.
 export async function finishUpgrade(siteRoot: string): Promise<FinishUpgradeResult> {
-  const files = refreshOwnedFiles(siteRoot, { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS });
+  const files = refreshOwnedFiles(siteRoot, { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS, version: readAgentVersion() });
   const config = loadSiteConfig(siteRoot);
   let migrated: string[] = [];
   let migrationProblem: string | null = null;

@@ -12,7 +12,7 @@ const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
 
 // Same real-fixture-site pattern as public.test.ts.
 function buildAssetsTestServer() {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-assets-test-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-assets-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
 

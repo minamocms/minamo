@@ -1,5 +1,5 @@
 // Runs a site from this repo's source instead of its installed
-// @o-a/cms-agent, so an unreleased change can be tried on a real local
+// minamo package, so an unreleased change can be tried on a real local
 // site without publishing it or touching the site's package.json:
 //
 //   npm run serve -- ~/Websites/my-site

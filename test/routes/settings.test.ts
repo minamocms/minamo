@@ -33,7 +33,7 @@ function git(siteRoot: string, args: string[]): string {
 // The fixture site, with a settings schema, and `settings` used in a
 // layout, a section, a block and a snippet (pulled in with render).
 function buildSettingsSite({ schema = SETTINGS_SCHEMA as unknown }: { schema?: unknown } = {}) {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-settings-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-settings-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   mkdirSync(join(siteRoot, 'theme', 'config'), { recursive: true });
   writeFileSync(join(siteRoot, 'theme', 'config', 'site_settings.json'), typeof schema === 'string' ? schema : JSON.stringify(schema));
@@ -177,7 +177,7 @@ test('settings.json is not reachable through the generic content routes', async 
 });
 
 test('a theme with no settings schema has no settings: templates see an empty `settings`, and only an empty save is accepted', async () => {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-no-settings-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-no-settings-'));
   try {
     cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
     assert.equal(loadThemeSchemas(join(siteRoot, 'theme')).settings, undefined);
@@ -203,7 +203,7 @@ test('a theme with no settings schema has no settings: templates see an empty `s
 });
 
 test('an unusable settings schema is left out with a start-up warning, like a broken section', () => {
-  const root = mkdtempSync(join(tmpdir(), 'cms-agent-settings-schema-'));
+  const root = mkdtempSync(join(tmpdir(), 'minamo-settings-schema-'));
   try {
     mkdirSync(join(root, 'config'));
     writeFileSync(join(root, 'config', 'site_settings.json'), 'not json');
@@ -224,7 +224,7 @@ test('an unusable settings schema is left out with a start-up warning, like a br
 });
 
 test('config/settings_schema.json, the 0.7.0 name, is still read in Granite\'s form with a warning to rename it; in Shopify\'s form it is left alone', () => {
-  const root = mkdtempSync(join(tmpdir(), 'cms-agent-settings-schema-'));
+  const root = mkdtempSync(join(tmpdir(), 'minamo-settings-schema-'));
   const schema = { type: 'object', properties: { announcement: { type: 'string', default: '' } } };
   try {
     mkdirSync(join(root, 'config'));

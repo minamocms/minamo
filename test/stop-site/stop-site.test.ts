@@ -132,7 +132,7 @@ async function waitFor(check: () => boolean, what: string): Promise<void> {
 }
 
 test('a real site: records itself on start, says it is already running on a second start, and stopSite stops it gracefully', async () => {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-stop-site-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-stop-site-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
   const config = loadSiteConfig(siteRoot);

@@ -20,7 +20,7 @@ test('B2: startup fails with a clear, specific error when the Node version is to
 });
 
 test('B2: startup fails with a clear, specific error when the site root is missing', () => {
-  const missingRoot = join(tmpdir(), 'cms-agent-test-does-not-exist');
+  const missingRoot = join(tmpdir(), 'minamo-test-does-not-exist');
   assert.throws(
     () => runStartupChecks(missingRoot),
     (error: unknown) => error instanceof StartupCheckError && error.reason === 'site-root-missing',
@@ -29,7 +29,7 @@ test('B2: startup fails with a clear, specific error when the site root is missi
 
 test('B2: startup fails with a clear, specific error when the git binary is absent', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot();
-  const emptyPathDir = mkdtempSync(join(tmpdir(), 'cms-agent-test-empty-path-'));
+  const emptyPathDir = mkdtempSync(join(tmpdir(), 'minamo-test-empty-path-'));
   try {
     assert.throws(
       () => runStartupChecks(siteRoot, { env: { PATH: emptyPathDir } }),

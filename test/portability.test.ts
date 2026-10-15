@@ -21,8 +21,8 @@ const FIXTURE_IDENTITY_ENV = {
 };
 
 test('H1: the full fixture site clones to a temp dir, and the agent boots against it and serves pages with no steps beyond config (portability drill)', async () => {
-  const originRoot = mkdtempSync(join(tmpdir(), 'cms-agent-portability-origin-'));
-  const cloneParent = mkdtempSync(join(tmpdir(), 'cms-agent-portability-clone-'));
+  const originRoot = mkdtempSync(join(tmpdir(), 'minamo-portability-origin-'));
+  const cloneParent = mkdtempSync(join(tmpdir(), 'minamo-portability-clone-'));
 
   try {
     // A real git history, not a checked-in fixture repo (a nested .git

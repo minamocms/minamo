@@ -30,7 +30,7 @@ export const TEST_IDENTITY_ENV = {
 export function createTmpSiteRoot(
   options: { git?: boolean; contentDirs?: boolean } = {},
 ): TmpSite {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-test-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-test-'));
 
   if (options.git) {
     execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });

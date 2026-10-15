@@ -50,12 +50,15 @@ function fakeFetch(state: { version: string | null; home: number }): typeof fetc
 }
 
 test('deployedVersionProblem: an exact version in vhost/package.json must match the one installed; ranges and links are not judged', () => {
-  const withSpec = (spec: unknown) => ({ readText: () => JSON.stringify({ dependencies: { '@o-a/cms-agent': spec } }) });
+  const withSpec = (spec: unknown) => ({ readText: () => JSON.stringify({ dependencies: { minamo: spec } }) });
   assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('0.7.1')), null);
   assert.match(deployedVersionProblem('/site', '0.7.1', withSpec('0.7.0')) ?? '', /asks for CMS 0\.7\.0, but 0\.7\.1 is installed here/);
   assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('^0.7.0')), null);
-  assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('file:../../app-granite-cms')), null);
+  assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('file:../../minamo-framework')), null);
   assert.equal(deployedVersionProblem('/site', '0.7.1', { readText: () => '{' }), null);
+  // A site not yet moved from the package's old name is checked the same way.
+  const onOldName = { readText: () => JSON.stringify({ dependencies: { '@o-a/cms-agent': '0.9.2' } }) };
+  assert.match(deployedVersionProblem('/site', '0.10.0', onOldName) ?? '', /asks for CMS 0\.9\.2, but 0\.10\.0 is installed here/);
 });
 
 test('waitForLiveVersion waits through a restart for the new version, then checks the home page', async () => {
@@ -207,7 +210,7 @@ test('npm run push --cms: nothing is deployed on a wrong confirmation, and a fai
 test('npm run push --cms refuses, deploying nothing, when vhost/package.json asks for a different CMS than the one installed', async () => {
   const { localRoot, marker, live, cleanup } = await upgradeScenario(touch);
   try {
-    writeJson(localRoot, 'vhost/package.json', { name: 'site', dependencies: { '@o-a/cms-agent': '0.0.1' } });
+    writeJson(localRoot, 'vhost/package.json', { name: 'site', dependencies: { minamo: '0.0.1' } });
     const host = new URL(live.url).host;
     const result = await runPush(localRoot, ['--cms'], `a-token\n${host}\n`);
     assert.equal(result.code, 1);

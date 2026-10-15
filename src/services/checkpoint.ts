@@ -13,7 +13,7 @@ import { enqueue } from './write-queue.ts';
 // (matching the Phase 1 sign-off that commits never fall back to
 // ~/.gitconfig), and there's zero possibility of a site operator
 // misconfiguring or omitting it.
-export const CHECKPOINT_AUTHOR: CommitAuthor = { name: 'CMS Agent', email: 'agent@localhost' };
+export const CHECKPOINT_AUTHOR: CommitAuthor = { name: 'Minamo', email: 'minamo@localhost' };
 
 async function checkpointJob(config: SiteConfig, author: CommitAuthor): Promise<'committed' | 'clean'> {
   // Derived from config.draftsRoot, never a hardcoded literal - Group N

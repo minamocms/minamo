@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { openLocalFsMediaDriver } from '../../src/media/drivers/local-fs-driver.ts';
 
 function tmpRoot(): { root: string; cleanup: () => void } {
-  const root = mkdtempSync(join(tmpdir(), 'cms-agent-media-driver-test-'));
+  const root = mkdtempSync(join(tmpdir(), 'minamo-media-driver-test-'));
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 

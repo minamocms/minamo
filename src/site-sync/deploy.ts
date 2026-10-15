@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PACKAGE_NAME, requestedVersion } from '../upgrade/package-names.ts';
 import { readCapabilities } from './live-content.ts';
 
 // How a CMS upgrade reaches the live site. A deploy replaces only the
@@ -69,16 +70,14 @@ export function detectDeployMethod(siteRoot: string, deps: DeployDeps = defaultD
 export function deployedVersionProblem(siteRoot: string, installedVersion: string, deps: Pick<DeployDeps, 'readText'> = defaultDeployDeps): string | null {
   let wanted: unknown;
   try {
-    wanted = (JSON.parse(deps.readText(join(siteRoot, 'vhost', 'package.json'))) as { dependencies?: Record<string, unknown> }).dependencies?.[
-      '@o-a/cms-agent'
-    ];
+    wanted = requestedVersion((JSON.parse(deps.readText(join(siteRoot, 'vhost', 'package.json'))) as { dependencies?: Record<string, unknown> }).dependencies);
   } catch {
     return null;
   }
   if (typeof wanted !== 'string' || !/^\d+\.\d+\.\d+$/.test(wanted) || wanted === installedVersion) {
     return null;
   }
-  return `vhost/package.json asks for CMS ${wanted}, but ${installedVersion} is installed here. A deploy builds what package.json asks for, so the live site would stay on ${wanted}. Set "@o-a/cms-agent" to "${installedVersion}" in vhost/package.json (or run npm run upgrade again), then push.`;
+  return `vhost/package.json asks for CMS ${wanted}, but ${installedVersion} is installed here. A deploy builds what package.json asks for, so the live site would stay on ${wanted}. Set "${PACKAGE_NAME}" to "${installedVersion}" in vhost/package.json (or run npm run upgrade again), then push.`;
 }
 
 export function describeDeployMethod(method: DeployMethod): string {

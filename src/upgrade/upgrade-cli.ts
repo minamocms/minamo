@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { ask, parseSyncArgs } from '../site-sync/cli-helpers.ts';
 import { changesBetween, compareVersions, mayBreak } from './changelog.ts';
 import { finishUpgrade } from './finish.ts';
-import { PACKAGE_NAME, SUCCESSOR_NAME, chooseUpgradeSource, upgradedDependencies, type PublishedVersions } from './package-names.ts';
+import { PACKAGE_NAME, upgradedDependencies } from './package-names.ts';
 
 // npm run upgrade [-- <version>] [--yes] [--force]
 //
@@ -72,34 +72,25 @@ function hasUncommittedChanges(): boolean {
   }
 }
 
-function publishedVersions(name: string): PublishedVersions {
-  const info = JSON.parse(npm(['view', name, 'versions', 'dist-tags', '--json'])) as {
-    versions: string[] | string;
-    'dist-tags': { latest: string };
-  };
-  return { versions: Array.isArray(info.versions) ? info.versions : [info.versions], latest: info['dist-tags'].latest };
-}
-
 async function start(): Promise<void> {
   const from = installedVersion();
 
-  let own: PublishedVersions;
+  let latest: string;
+  let versions: string[];
   try {
-    own = publishedVersions(PACKAGE_NAME);
+    const info = JSON.parse(npm(['view', PACKAGE_NAME, 'versions', 'dist-tags', '--json'])) as {
+      versions: string[] | string;
+      'dist-tags': { latest: string };
+    };
+    versions = Array.isArray(info.versions) ? info.versions : [info.versions];
+    latest = info['dist-tags'].latest;
   } catch {
     return fail(`Couldn't ask npm which versions of ${PACKAGE_NAME} exist. Check your internet connection and try again.`);
   }
-  let successor: PublishedVersions | null;
-  try {
-    successor = publishedVersions(SUCCESSOR_NAME);
-  } catch {
-    successor = null;
-  }
-  const { name: target, versions, latest } = chooseUpgradeSource(from, own, successor);
 
   const to = args.positional[0] ?? latest;
   if (!versions.includes(to)) {
-    fail(`${target} has no version ${to}. The latest is ${latest}.`);
+    fail(`${PACKAGE_NAME} has no version ${to}. The latest is ${latest}.`);
   }
   if (compareVersions(to, from) === 0) {
     console.log(`Already on ${from}${to === latest ? ', the latest' : ''}. Nothing to upgrade.`);
@@ -115,10 +106,7 @@ async function start(): Promise<void> {
   }
 
   console.log(`Upgrading the CMS from ${from} to ${to}.\n`);
-  if (target !== PACKAGE_NAME) {
-    console.log(`The CMS is now called Minamo: from here on it is the ${target} package, in place of ${PACKAGE_NAME}.\n`);
-  }
-  const changelog = changelogOf(target, to);
+  const changelog = changelogOf(PACKAGE_NAME, to);
   if (changelog) {
     for (const section of changesBetween(changelog, from, to)) {
       console.log(`--- ${section.version} ---\n${section.text}\n`);
@@ -143,10 +131,10 @@ async function start(): Promise<void> {
   const packageBefore = readFileSync(packagePath, 'utf-8');
   const lockBefore = existsSync(lockPath) ? readFileSync(lockPath, 'utf-8') : null;
   const pkg = JSON.parse(packageBefore) as { dependencies?: Record<string, string> };
-  pkg.dependencies = upgradedDependencies(pkg.dependencies, target, to);
+  pkg.dependencies = upgradedDependencies(pkg.dependencies, to);
   writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`);
 
-  console.log(`Installing ${target}@${to}...`);
+  console.log(`Installing ${PACKAGE_NAME}@${to}...`);
   try {
     execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhostDir, stdio: 'inherit' });
   } catch {
@@ -158,7 +146,7 @@ async function start(): Promise<void> {
   }
 
   // Hand over to the version just installed.
-  const next = join(vhostDir, 'node_modules', ...target.split('/'), 'dist', 'upgrade', 'upgrade-cli.js');
+  const next = join(vhostDir, 'node_modules', ...PACKAGE_NAME.split('/'), 'dist', 'upgrade', 'upgrade-cli.js');
   if (!existsSync(next)) {
     fail(`${to} is installed, but has no upgrade step of its own to finish with.`);
   }

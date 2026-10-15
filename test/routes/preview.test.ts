@@ -23,7 +23,7 @@ function hashOf(token: string): string {
 // content a content-scoped token can already read raw via
 // GET /v1/drafts/:path - no separate "preview" scope exists).
 function buildPreviewTestServer({ withoutDrafts = false } = {}) {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-preview-test-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-preview-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   if (withoutDrafts) {
     rmSync(join(siteRoot, 'content', 'drafts'), { recursive: true });

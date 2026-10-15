@@ -1,17 +1,17 @@
 {
-  "name": "@o-a/cms-agent",
+  "name": "minamo",
   "version": "0.9.2",
   "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "description": "Self-hosted, git-backed CMS agent, distributed as a compiled npm package.",
-  "license": "SEE LICENSE IN LICENSE",
+  "description": "Minamo: a self-hosted, git-backed CMS for sites built from JSON content and Liquid themes.",
+  "license": "FSL-1.1-ALv2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/o-a-com-au/granitecms.git"
+    "url": "git+https://github.com/o-a-com-au/minamo-framework.git"
   },
-  "homepage": "https://github.com/o-a-com-au/granitecms",
+  "homepage": "https://github.com/o-a-com-au/minamo-framework",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

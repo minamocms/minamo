@@ -8,7 +8,8 @@ import { SCAFFOLD_SCRIPTS, SERVER_JS, TEMPLATE_ROOT, scaffoldSite } from '../../
 import { changesBetween, compareVersions, mayBreak } from '../../src/upgrade/changelog.ts';
 import { finishUpgrade } from '../../src/upgrade/finish.ts';
 import { refreshOwnedFiles } from '../../src/upgrade/owned-files.ts';
-import { chooseUpgradeSource, upgradedDependencies } from '../../src/upgrade/package-names.ts';
+import { requestedVersion, upgradedDependencies } from '../../src/upgrade/package-names.ts';
+import { readAgentVersion } from '../../src/routes/capabilities.ts';
 import { TEST_IDENTITY_ENV } from '../helpers/tmp-site.ts';
 
 test('versions compare numerically, and a 0.x minor step (or any major step) may break things', () => {
@@ -45,7 +46,7 @@ function scaffolded() {
   return { siteRoot, cleanup: () => rmSync(join(siteRoot, '..'), { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
-const SOURCE = { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS };
+const SOURCE = { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS, version: readAgentVersion() };
 
 test('refreshOwnedFiles puts back the CMS\'s own files, keeps the developer\'s own scripts, and touches nothing else', () => {
   const { siteRoot, cleanup } = scaffolded();
@@ -78,7 +79,7 @@ test('refreshOwnedFiles puts back the CMS\'s own files, keeps the developer\'s o
     const after = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { scripts: Record<string, string>; dependencies: Record<string, string> };
     assert.equal(after.scripts.push, 'push-site');
     assert.equal(after.scripts.lint, 'my-own-linter');
-    assert.deepEqual(after.dependencies, pkg.dependencies, 'the dependency is left as installed');
+    assert.deepEqual(after.dependencies, pkg.dependencies, 'the dependency is the version installed');
     assert.equal(readFileSync(join(siteRoot, 'vhost/site.config.json'), 'utf-8'), configBefore, 'tokens untouched');
     assert.equal(readFileSync(join(siteRoot, 'theme/layouts/theme.liquid'), 'utf-8'), layoutBefore, 'theme untouched');
 
@@ -139,17 +140,32 @@ test('finishUpgrade reports content it can\'t update rather than failing, and ch
   }
 });
 
-test('an upgrade moves to the minamo package once it has a newer version, and stays on @o-a/cms-agent until then', () => {
-  const own = { versions: ['0.9.1', '0.9.2'], latest: '0.9.2' };
-  assert.deepEqual(chooseUpgradeSource('0.9.1', own, null), { name: '@o-a/cms-agent', ...own });
-  assert.equal(chooseUpgradeSource('0.9.2', own, { versions: ['0.9.0'], latest: '0.9.0' }).name, '@o-a/cms-agent', 'an older package by that name is never taken');
-  const successor = { versions: ['0.10.0'], latest: '0.10.0' };
-  assert.deepEqual(chooseUpgradeSource('0.9.1', own, successor), { name: 'minamo', ...successor });
+test('a site still on @o-a/cms-agent finishes its upgrade on minamo: its server.js and dependency are moved over, its own dependencies kept', () => {
+  const { siteRoot, cleanup } = scaffolded();
+  try {
+    const pkgPath = join(siteRoot, 'vhost/package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
+    pkg.dependencies = { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' };
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+    writeFileSync(join(siteRoot, 'vhost/server.js'), SERVER_JS.replace("'minamo'", "'@o-a/cms-agent'"));
+
+    const statuses = Object.fromEntries(refreshOwnedFiles(siteRoot, SOURCE).map((result) => [result.path, result.status]));
+
+    assert.equal(statuses['vhost/server.js'], 'updated');
+    assert.match(readFileSync(join(siteRoot, 'vhost/server.js'), 'utf-8'), /from 'minamo'/);
+    const after = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
+    assert.deepEqual(after.dependencies, { marked: '15.0.0', minamo: SOURCE.version });
+  } finally {
+    cleanup();
+  }
 });
 
-test('moving to minamo swaps the dependency over and keeps the site\'s own', () => {
-  const before = { '@o-a/cms-agent': '0.9.1', marked: '15.0.0' };
-  assert.deepEqual(upgradedDependencies(before, 'minamo', '0.10.0'), { marked: '15.0.0', minamo: '0.10.0' });
-  assert.deepEqual(upgradedDependencies(before, '@o-a/cms-agent', '0.9.2'), { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' });
-  assert.deepEqual(before, { '@o-a/cms-agent': '0.9.1', marked: '15.0.0' }, 'the original is not changed');
+test('upgradedDependencies names the CMS once, as minamo, and requestedVersion reads either name', () => {
+  const before = { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' };
+  assert.deepEqual(upgradedDependencies(before, '0.10.0'), { marked: '15.0.0', minamo: '0.10.0' });
+  assert.deepEqual(upgradedDependencies({ minamo: '0.10.0' }, '0.10.1'), { minamo: '0.10.1' });
+  assert.deepEqual(before, { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' }, 'the original is not changed');
+  assert.equal(requestedVersion({ minamo: '0.10.0' }), '0.10.0');
+  assert.equal(requestedVersion(before), '0.9.2');
+  assert.equal(requestedVersion({ marked: '15.0.0' }), undefined);
 });

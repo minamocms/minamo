@@ -14,7 +14,7 @@ const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
 const TOKEN = 'links-test-token';
 
 test('GET /v1/deleted-pages answers with a list and needs a content token', async () => {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-deleted-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-deleted-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
   writeJson(siteRoot, 'vhost/site.config.json', { tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content'] }] });
@@ -31,7 +31,7 @@ test('GET /v1/deleted-pages answers with a list and needs a content token', asyn
 });
 
 test('GET /v1/links?to= lists what links to a page, needs a content token, and refuses anything but a page path', async () => {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-links-'));
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-links-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
   writeJson(siteRoot, 'vhost/site.config.json', { tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content'] }] });

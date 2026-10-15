@@ -71,7 +71,7 @@ export async function checkPullableSite(siteUrl: string, fetchImpl?: typeof fetc
   if (capabilities.contentSchemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new SiteSyncError(
       'newer-schema',
-      `The live site uses content schema ${capabilities.contentSchemaVersion} (agent ${capabilities.agentVersion}), newer than this site's ${CURRENT_SCHEMA_VERSION}. Upgrade @o-a/cms-agent here first.`,
+      `The live site uses content schema ${capabilities.contentSchemaVersion} (agent ${capabilities.agentVersion}), newer than this site's ${CURRENT_SCHEMA_VERSION}. Upgrade minamo here first.`,
     );
   }
 }
