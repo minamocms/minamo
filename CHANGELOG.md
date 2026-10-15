@@ -4,6 +4,12 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Changed
+
+- **Published as `minamo`.** The CMS is now called Minamo, and this package replaces `@o-a/cms-agent`. New sites depend on `minamo` and their `vhost/server.js` imports it. A site on `@o-a/cms-agent` moves over with `npm run upgrade` from 0.9.2 (on 0.9.1 or earlier, run `npm install @o-a/cms-agent@0.9.2 --save-exact` in `vhost/` first): its dependency and `server.js` are switched to the new name, then test and `npm run push --cms` as for any upgrade. The licence is unchanged (FSL-1.1-ALv2) and now named in `package.json`.
+- **A redeploy also refreshes `vhost/server.js`** on the live volume, alongside the installed CMS, since it imports the CMS by name. Nothing else on the volume changes.
+- Commits the CMS makes itself (checkpoints, and a recovered `.git` on first boot) are authored as `Minamo` in place of `CMS Agent`.
+
 ## [0.9.2] - 2026-10-15
 
 ### Changed
