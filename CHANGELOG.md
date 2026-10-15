@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-15
+
 ### Changed
 
 - **The CMS is now called Minamo, and from 0.10.0 it is published as `minamo`** in place of `@o-a/cms-agent`. `npm run upgrade` looks for it under the new name: once `minamo` has a newer version, the upgrade moves the site over, swapping the dependency in `vhost/package.json`, then finishes as any upgrade does. Until then it upgrades exactly as before.
