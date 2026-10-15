@@ -1,21 +1,23 @@
-# Minamo
+# Minamo framework
 
 **Own your content, forever.**
 
-Minamo is a self-hosted, git-backed content management system. Every
-page is a plain JSON file. Every publish is a real git commit. There is no
-database standing between you and your own content, and there never will be.
+The Minamo framework is a self-hosted web framework for content sites,
+built on Liquid templates. Every page is a plain JSON file. Every publish
+is a real git commit. There is no database standing between you and your
+own content, and there never will be. Editors manage a site through the
+Minamo CMS, or any tool that speaks its versioned API.
 
 If you've ever had a headless CMS raise its prices, change its export
 format, or go down and take your site's editing with it - this is built to
-make that structurally impossible. Moving away from Minamo is
-`git clone`. That's the whole migration story.
+make that structurally impossible. Your site and its content stay yours:
+moving away is `git clone`. That's the whole migration story.
 
 ## Why this is different
 
 Most self-hosted, code-first CMS options give you an API and a database.
 Most git-based CMS tools give you markdown files and a static-site rebuild.
-Minamo is the combination neither of those is:
+The Minamo framework is the combination neither of those is:
 
 - **Git-native content.** Pages, posts, menus, and redirects are JSON files
   in your own git repository. No database is ever the source of truth.
@@ -31,7 +33,7 @@ Minamo is the combination neither of those is:
   Minamo admin (or your own tooling) talks to, never the filesystem
   directly.
 
-## Two audiences, one engine
+## Two audiences, one framework
 
 - **Developers** build the theme: Liquid layouts, sections, and blocks,
   each with an embedded JSON Schema for its settings. Start with
@@ -46,7 +48,7 @@ Minamo is the combination neither of those is:
 ## Quick start
 
 ```
-npx -p @minamocms/minamo create-site my-site
+npx -p @minamocms/framework create-site my-site
 cd my-site/vhost
 npm install
 npm start
@@ -73,7 +75,7 @@ my-site/
   vhost/     site.config.json, package.json, server.js
 ```
 
-This repository (the framework itself, the `@minamocms/minamo` package) is developed
+This repository (the framework itself, the `@minamocms/framework` package) is developed
 separately and installed as a versioned dependency - see [`docs/cms-build-plan.md`](docs/cms-build-plan.md)
 for the full architecture and the reasoning behind it.
 
@@ -110,7 +112,7 @@ works too.
 
 Up to 0.9.x this package was published as `@o-a/cms-agent` (and the
 project was called Granite CMS). From `vhost/`, run `npm run upgrade`: on
-0.9.3 it moves the site over to `@minamocms/minamo`, and on 0.6.0 to 0.9.2 it first
+0.9.3 it moves the site over to `@minamocms/framework`, and on 0.6.0 to 0.9.2 it first
 reaches 0.9.3, so run it a second time. On 0.5.x, run
 `npm install @o-a/cms-agent@0.9.3 --save-exact` and
 `npx upgrade-site --finish` first.

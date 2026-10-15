@@ -1,6 +1,6 @@
 # Framework checklist
 
-The acceptance checklist for work on the framework (the `@minamocms/minamo` package) from Group AG on. Phases 1 and 2 are in `phase-1-checklist.md` and `phase-2-checklist.md`. Phase 3, the admin application, now lives with the admin, which is a private hosted service in its own repository; the agent-side groups it covered are in this repository's git history (`docs/phase-3-checklist.md` before the move). Group letters carry on from Phase 3's.
+The acceptance checklist for work on the framework (the `@minamocms/framework` package) from Group AG on. Phases 1 and 2 are in `phase-1-checklist.md` and `phase-2-checklist.md`. Phase 3, the admin application, now lives with the admin, which is a private hosted service in its own repository; the agent-side groups it covered are in this repository's git history (`docs/phase-3-checklist.md` before the move). Group letters carry on from Phase 3's.
 
 Rules for using this file (same as the phase checklists):
 
@@ -19,13 +19,13 @@ Agreed with the owner: a site-wide rollback in three steps - Recently deleted, t
 
 ## Group AH: Rename to Minamo
 
-Decided by the owner (2026-10-15): the product is Minamo, and the framework is published to npm as `@minamocms/minamo` from 0.10.1. (The unscoped `minamo`, tried for 0.10.0, was refused by npm as too like `minami` and `minio`; 0.10.0 was never published, and 0.9.2's lookup of `minamo` never finds anything.) A last `@o-a/cms-agent` release, 0.9.3, hands existing sites over through `npm run upgrade`; the `minamocms` npm organisation exists before it is published, so the name it looks up is already ours.
+Decided by the owner (2026-10-15): the product is Minamo, and the framework is published to npm as `@minamocms/framework` from 0.10.1. (The unscoped `minamo`, tried for 0.10.0, was refused by npm as too like `minami` and `minio`; 0.10.0 was never published, and 0.9.2's lookup of `minamo` never finds anything.) A last `@o-a/cms-agent` release, 0.9.3, hands existing sites over through `npm run upgrade`; the `minamocms` npm organisation exists before it is published, so the name it looks up is already ours.
 
 | # | Criterion | Proof |
 |---|---|---|
-| AH1 | `npm run upgrade` on `@o-a/cms-agent` 0.9.3 moves to `@minamocms/minamo` once it has a newer version (swapping the dependency, keeping the site's own, handing over to its finish step), and upgrades as before until then | 0.9.3's own unit tests (tag v0.9.3, branch `release/0.9.x`); `e2e/upgrade.check.ts :: a site on @o-a/cms-agent 0.9.3 upgrades onto @minamocms/minamo` (the real tagged build, packed and installed) |
-| AH2 | The package is `@minamocms/minamo` (licence `FSL-1.1-ALv2`): new sites depend on it and import it; finishing an upgrade leaves only `@minamocms/minamo` in `vhost/package.json` and puts back a `server.js` importing it; push's version check reads either name | `test/upgrade/upgrade.test.ts :: a site still on @o-a/cms-agent finishes its upgrade on @minamocms/minamo ...`, `:: upgradedDependencies names the CMS once ...`; `test/create-site/generate-site.test.ts :: scaffoldSite pins @minamocms/minamo ...`; `test/site-sync/deploy.test.ts :: deployedVersionProblem ...` |
-| AH3 | A redeploy refreshes `vhost/server.js` on the live volume along with the installed CMS, so a live site moved to `@minamocms/minamo` still starts | `test/create-site/generate-site.test.ts` (docker-entrypoint.sh refresh test: server.js follows the image) |
+| AH1 | `npm run upgrade` on `@o-a/cms-agent` 0.9.3 moves to `@minamocms/framework` once it has a newer version (swapping the dependency, keeping the site's own, handing over to its finish step), and upgrades as before until then | 0.9.3's own unit tests (tag v0.9.3, branch `release/0.9.x`); `e2e/upgrade.check.ts :: a site on @o-a/cms-agent 0.9.3 upgrades onto @minamocms/framework` (the real tagged build, packed and installed) |
+| AH2 | The package is `@minamocms/framework` (licence `FSL-1.1-ALv2`): new sites depend on it and import it; finishing an upgrade leaves only `@minamocms/framework` in `vhost/package.json` and puts back a `server.js` importing it; push's version check reads either name | `test/upgrade/upgrade.test.ts :: a site still on @o-a/cms-agent finishes its upgrade on @minamocms/framework ...`, `:: upgradedDependencies names the CMS once ...`; `test/create-site/generate-site.test.ts :: scaffoldSite pins @minamocms/framework ...`; `test/site-sync/deploy.test.ts :: deployedVersionProblem ...` |
+| AH3 | A redeploy refreshes `vhost/server.js` on the live volume along with the installed CMS, so a live site moved to `@minamocms/framework` still starts | `test/create-site/generate-site.test.ts` (docker-entrypoint.sh refresh test: server.js follows the image) |
 
 ## Future considerations (not scoped, for later discussion)
 

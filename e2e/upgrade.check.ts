@@ -16,12 +16,12 @@ import { TEST_IDENTITY_ENV } from '../test/helpers/tmp-site.ts';
 // then upgraded with the real npm view / pack / install, including the
 // hand-over to the newly installed version's own --finish step. Then a
 // site on the last @o-a/cms-agent release (packed from its git tag)
-// upgrades the same way, and lands on @minamocms/minamo.
+// upgrades the same way, and lands on @minamocms/framework.
 
 const repoRoot = join(import.meta.dirname, '..');
 const run = promisify(execFile);
 const MARKER = 'upgrade-check-marker';
-const PACKAGE = '@minamocms/minamo';
+const PACKAGE = '@minamocms/framework';
 // The last release under the package's old name.
 const LEGACY = { name: '@o-a/cms-agent', version: '0.9.3', tag: 'v0.9.3' };
 
@@ -104,7 +104,7 @@ test('npm run upgrade: shows the changelog, installs the next version, and that 
     const legacyTarball = packLegacy(scratch, tarballs);
 
     // --- A stand-in npm registry ---
-    // It answers for @minamocms/minamo and @o-a/cms-agent, and passes
+    // It answers for @minamocms/framework and @o-a/cms-agent, and passes
     // every other request through to the real registry.
     const packages: Record<string, { latest: string; versions: Record<string, string> }> = {
       [PACKAGE]: { latest: next, versions: { [current]: currentTarball, [next]: nextTarball } },

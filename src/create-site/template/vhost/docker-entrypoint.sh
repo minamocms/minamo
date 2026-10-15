@@ -24,7 +24,7 @@ else
   # version would keep running the old one from the volume forever.
   # Only the dependency manifest, its installed packages and server.js
   # (the CMS's own, which imports it by name: the package was renamed
-  # from @o-a/cms-agent to @minamocms/minamo) are copied; site.config.json
+  # from @o-a/cms-agent to @minamocms/framework) are copied; site.config.json
   # (tokens) stays as it is on the volume.
   #
   # This leaves vhost/package.json (and package-lock.json) showing as

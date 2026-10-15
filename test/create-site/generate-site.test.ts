@@ -110,7 +110,7 @@ test('the scaffolded server.js threads a --tunnel CLI flag through to startServe
   }
 });
 
-test('scaffoldSite pins @minamocms/minamo to the exact installed version, and sets "type": "module"', () => {
+test('scaffoldSite pins @minamocms/framework to the exact installed version, and sets "type": "module"', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {
     scaffoldSite(targetDir);
@@ -120,8 +120,8 @@ test('scaffoldSite pins @minamocms/minamo to the exact installed version, and se
       scripts: Record<string, string>;
     };
     assert.equal(pkg.type, 'module');
-    assert.ok(pkg.dependencies['@minamocms/minamo']);
-    assert.ok(!pkg.dependencies['@minamocms/minamo'].startsWith('^'), 'the dependency must be pinned exact, not a range');
+    assert.ok(pkg.dependencies['@minamocms/framework']);
+    assert.ok(!pkg.dependencies['@minamocms/framework'].startsWith('^'), 'the dependency must be pinned exact, not a range');
     assert.equal(pkg.scripts.start, 'node server.js');
     assert.equal(pkg.scripts.tunnel, 'node server.js --tunnel');
     assert.equal(pkg.scripts.dev, 'node --watch-path=../theme server.js');
@@ -228,14 +228,14 @@ test('docker-entrypoint.sh seeds an empty volume, then on later boots refreshes 
 
     function writeSeed(agentVersion: string, pageTitle: string): void {
       rmSync(seed, { recursive: true, force: true });
-      mkdirSync(join(seed, 'vhost', 'node_modules', '@minamocms', 'minamo'), { recursive: true });
+      mkdirSync(join(seed, 'vhost', 'node_modules', '@minamocms', 'framework'), { recursive: true });
       mkdirSync(join(seed, 'content', 'pages'), { recursive: true });
       mkdirSync(join(seed, '.git'));
       writeFileSync(join(seed, 'vhost', 'server.js'), `process.exit(0); // ${agentVersion}\n`);
       writeFileSync(join(seed, 'vhost', 'site.config.json'), '{"tokens":[]}');
-      writeFileSync(join(seed, 'vhost', 'package.json'), JSON.stringify({ dependencies: { '@minamocms/minamo': agentVersion } }));
+      writeFileSync(join(seed, 'vhost', 'package.json'), JSON.stringify({ dependencies: { '@minamocms/framework': agentVersion } }));
       writeFileSync(join(seed, 'vhost', 'package-lock.json'), JSON.stringify({ version: agentVersion }));
-      writeFileSync(join(seed, 'vhost', 'node_modules', '@minamocms', 'minamo', 'VERSION'), agentVersion);
+      writeFileSync(join(seed, 'vhost', 'node_modules', '@minamocms', 'framework', 'VERSION'), agentVersion);
       writeFileSync(join(seed, 'content', 'pages', 'index.json'), JSON.stringify({ title: pageTitle }));
     }
     const boot = () => execFileSync('sh', [script], { env: { ...process.env, CMS_SEED_DIR: seed, CMS_SITE_DIR: site } });
@@ -243,7 +243,7 @@ test('docker-entrypoint.sh seeds an empty volume, then on later boots refreshes 
     // First boot: an empty volume gets everything.
     writeSeed('0.5.0', 'From the image');
     boot();
-    assert.equal(readFileSync(join(site, 'vhost', 'node_modules', '@minamocms', 'minamo', 'VERSION'), 'utf-8'), '0.5.0');
+    assert.equal(readFileSync(join(site, 'vhost', 'node_modules', '@minamocms', 'framework', 'VERSION'), 'utf-8'), '0.5.0');
 
     // The live site is edited, and has a package the new image won't.
     writeFileSync(join(site, 'content', 'pages', 'index.json'), JSON.stringify({ title: 'Edited live' }));
@@ -254,12 +254,12 @@ test('docker-entrypoint.sh seeds an empty volume, then on later boots refreshes 
     writeSeed('0.5.2', 'From the new image');
     boot();
 
-    assert.equal(readFileSync(join(site, 'vhost', 'node_modules', '@minamocms', 'minamo', 'VERSION'), 'utf-8'), '0.5.2');
-    assert.deepEqual(JSON.parse(readFileSync(join(site, 'vhost', 'package.json'), 'utf-8')), { dependencies: { '@minamocms/minamo': '0.5.2' } });
+    assert.equal(readFileSync(join(site, 'vhost', 'node_modules', '@minamocms', 'framework', 'VERSION'), 'utf-8'), '0.5.2');
+    assert.deepEqual(JSON.parse(readFileSync(join(site, 'vhost', 'package.json'), 'utf-8')), { dependencies: { '@minamocms/framework': '0.5.2' } });
     assert.equal(JSON.parse(readFileSync(join(site, 'vhost', 'package-lock.json'), 'utf-8')).version, '0.5.2');
     assert.equal(existsSync(join(site, 'vhost', 'node_modules', 'stale-package')), false, 'node_modules is replaced, not merged');
     // server.js is the CMS's own and imports it by name, so it follows the
-    // image (a site moving from @o-a/cms-agent to @minamocms/minamo needs the new one).
+    // image (a site moving from @o-a/cms-agent to @minamocms/framework needs the new one).
     assert.match(readFileSync(join(site, 'vhost', 'server.js'), 'utf-8'), /0\.5\.2/);
     // Everything that belongs to the live site stays as it was.
     assert.equal(JSON.parse(readFileSync(join(site, 'content', 'pages', 'index.json'), 'utf-8')).title, 'Edited live');

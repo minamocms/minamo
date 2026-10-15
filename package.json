@@ -1,11 +1,11 @@
 {
-  "name": "@minamocms/minamo",
+  "name": "@minamocms/framework",
   "version": "0.10.1",
   "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "description": "Minamo: a self-hosted, git-backed CMS for sites built from JSON content and Liquid themes.",
+  "description": "Minamo framework: a self-hosted web framework for content sites, built on Liquid templates, with JSON content in git and a versioned API for the Minamo CMS.",
   "license": "FSL-1.1-ALv2",
   "repository": {
     "type": "git",

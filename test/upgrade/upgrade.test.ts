@@ -140,32 +140,32 @@ test('finishUpgrade reports content it can\'t update rather than failing, and ch
   }
 });
 
-test('a site still on @o-a/cms-agent finishes its upgrade on @minamocms/minamo: its server.js and dependency are moved over, its own dependencies kept', () => {
+test('a site still on @o-a/cms-agent finishes its upgrade on @minamocms/framework: its server.js and dependency are moved over, its own dependencies kept', () => {
   const { siteRoot, cleanup } = scaffolded();
   try {
     const pkgPath = join(siteRoot, 'vhost/package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
     pkg.dependencies = { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' };
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-    writeFileSync(join(siteRoot, 'vhost/server.js'), SERVER_JS.replace("'@minamocms/minamo'", "'@o-a/cms-agent'"));
+    writeFileSync(join(siteRoot, 'vhost/server.js'), SERVER_JS.replace("'@minamocms/framework'", "'@o-a/cms-agent'"));
 
     const statuses = Object.fromEntries(refreshOwnedFiles(siteRoot, SOURCE).map((result) => [result.path, result.status]));
 
     assert.equal(statuses['vhost/server.js'], 'updated');
-    assert.match(readFileSync(join(siteRoot, 'vhost/server.js'), 'utf-8'), /from '@minamocms\/minamo'/);
+    assert.match(readFileSync(join(siteRoot, 'vhost/server.js'), 'utf-8'), /from '@minamocms\/framework'/);
     const after = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
-    assert.deepEqual(after.dependencies, { marked: '15.0.0', '@minamocms/minamo': SOURCE.version });
+    assert.deepEqual(after.dependencies, { marked: '15.0.0', '@minamocms/framework': SOURCE.version });
   } finally {
     cleanup();
   }
 });
 
-test('upgradedDependencies names the CMS once, as @minamocms/minamo, and requestedVersion reads either name', () => {
+test('upgradedDependencies names the CMS once, as @minamocms/framework, and requestedVersion reads either name', () => {
   const before = { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' };
-  assert.deepEqual(upgradedDependencies(before, '0.10.0'), { marked: '15.0.0', '@minamocms/minamo': '0.10.0' });
-  assert.deepEqual(upgradedDependencies({ '@minamocms/minamo': '0.10.0' }, '0.10.1'), { '@minamocms/minamo': '0.10.1' });
+  assert.deepEqual(upgradedDependencies(before, '0.10.0'), { marked: '15.0.0', '@minamocms/framework': '0.10.0' });
+  assert.deepEqual(upgradedDependencies({ '@minamocms/framework': '0.10.0' }, '0.10.1'), { '@minamocms/framework': '0.10.1' });
   assert.deepEqual(before, { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' }, 'the original is not changed');
-  assert.equal(requestedVersion({ '@minamocms/minamo': '0.10.0' }), '0.10.0');
+  assert.equal(requestedVersion({ '@minamocms/framework': '0.10.0' }), '0.10.0');
   assert.equal(requestedVersion(before), '0.9.2');
   assert.equal(requestedVersion({ marked: '15.0.0' }), undefined);
 });

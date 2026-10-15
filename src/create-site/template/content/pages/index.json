@@ -14,7 +14,7 @@
         "heading": "Solid foundations for client sites.",
         "subheading": "Minamo is a lightweight, developer-first CMS built for agencies and freelancers who'd rather ship clean git-based sites than fight plugin bloat. Model your content, hand off a client-friendly admin, deploy anywhere.",
         "codeTitle": "terminal",
-        "codeSnippet": "$ npx -p @minamocms/minamo create-site acme-corp\n✔ Scaffolded theme, content and vhost\n✔ Structured content models ready\n\n$ npm run push\n✔ Built 42 pages in 380ms\n✔ Synced to production, done."
+        "codeSnippet": "$ npx -p @minamocms/framework create-site acme-corp\n✔ Scaffolded theme, content and vhost\n✔ Structured content models ready\n\n$ npm run push\n✔ Built 42 pages in 380ms\n✔ Synced to production, done."
       },
       "blocks": [
         { "id": "blk-hero-cta-primary", "type": "button", "settings": { "label": "Get started", "url": "/docs", "style": "primary" } },

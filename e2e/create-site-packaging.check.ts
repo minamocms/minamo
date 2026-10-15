@@ -129,7 +129,7 @@ test('J4: a real npm pack + npm install + node server.js boots a scaffolded site
       // leaks everything (including files "files" is meant to
       // exclude), silently defeating this entire proof while still
       // appearing to pass. Verified empirically before writing this.
-      pkg.dependencies['@minamocms/minamo'] = `file:${tarballPath}`;
+      pkg.dependencies['@minamocms/framework'] = `file:${tarballPath}`;
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 
       const configPath = join(vhostDir, 'site.config.json');
@@ -140,10 +140,10 @@ test('J4: a real npm pack + npm install + node server.js boots a scaffolded site
 
     await t.test('a real npm install resolves the packed tarball and its transitive dependencies', () => {
       execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhostDir, stdio: 'ignore' });
-      assert.ok(existsSync(join(vhostDir, 'node_modules', '@minamocms', 'minamo', 'dist', 'index.js')));
+      assert.ok(existsSync(join(vhostDir, 'node_modules', '@minamocms', 'framework', 'dist', 'index.js')));
       // Proves the file: dependency really did resolve from the
       // tarball, not a leaked symlink into this repo's own source.
-      assert.ok(!existsSync(join(vhostDir, 'node_modules', '@minamocms', 'minamo', 'src')));
+      assert.ok(!existsSync(join(vhostDir, 'node_modules', '@minamocms', 'framework', 'src')));
     });
 
     await t.test('node server.js boots as a real, separate OS process and serves a real HTTP response', async () => {

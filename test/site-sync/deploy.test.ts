@@ -50,7 +50,7 @@ function fakeFetch(state: { version: string | null; home: number }): typeof fetc
 }
 
 test('deployedVersionProblem: an exact version in vhost/package.json must match the one installed; ranges and links are not judged', () => {
-  const withSpec = (spec: unknown) => ({ readText: () => JSON.stringify({ dependencies: { '@minamocms/minamo': spec } }) });
+  const withSpec = (spec: unknown) => ({ readText: () => JSON.stringify({ dependencies: { '@minamocms/framework': spec } }) });
   assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('0.7.1')), null);
   assert.match(deployedVersionProblem('/site', '0.7.1', withSpec('0.7.0')) ?? '', /asks for CMS 0\.7\.0, but 0\.7\.1 is installed here/);
   assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('^0.7.0')), null);
@@ -210,7 +210,7 @@ test('npm run push --cms: nothing is deployed on a wrong confirmation, and a fai
 test('npm run push --cms refuses, deploying nothing, when vhost/package.json asks for a different CMS than the one installed', async () => {
   const { localRoot, marker, live, cleanup } = await upgradeScenario(touch);
   try {
-    writeJson(localRoot, 'vhost/package.json', { name: 'site', dependencies: { '@minamocms/minamo': '0.0.1' } });
+    writeJson(localRoot, 'vhost/package.json', { name: 'site', dependencies: { '@minamocms/framework': '0.0.1' } });
     const host = new URL(live.url).host;
     const result = await runPush(localRoot, ['--cms'], `a-token\n${host}\n`);
     assert.equal(result.code, 1);

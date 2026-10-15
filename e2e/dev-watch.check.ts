@@ -70,7 +70,7 @@ test('npm run dev: a real theme file change triggers a real restart and the new 
     await t.test('patch the scaffold to depend on the real tarball, and pin a concrete port', () => {
       const pkgPath = join(vhostDir, 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
-      pkg.dependencies['@minamocms/minamo'] = `file:${tarballPath}`;
+      pkg.dependencies['@minamocms/framework'] = `file:${tarballPath}`;
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 
       const configPath = join(vhostDir, 'site.config.json');
@@ -81,7 +81,7 @@ test('npm run dev: a real theme file change triggers a real restart and the new 
 
     await t.test('a real npm install resolves the packed tarball', () => {
       execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhostDir, stdio: 'ignore' });
-      assert.ok(existsSync(join(vhostDir, 'node_modules', '@minamocms', 'minamo', 'dist', 'index.js')));
+      assert.ok(existsSync(join(vhostDir, 'node_modules', '@minamocms', 'framework', 'dist', 'index.js')));
     });
 
     const marker = 'dev-watch-proof-marker';

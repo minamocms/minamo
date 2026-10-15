@@ -8,8 +8,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Changed
 
-- **Published as `@minamocms/minamo`**, the first release under the new name, with everything listed under 0.10.0. 0.10.0 was tagged but never published: npm refused the unscoped name `minamo` as too like existing packages' names. Start a new site with `npx -p @minamocms/minamo create-site my-site`.
-- **Moving a site from `@o-a/cms-agent`:** from `vhost/`, run `npm run upgrade`. On 0.9.3 that moves the site over to `@minamocms/minamo`, switching its dependency and `server.js` to the new name; on 0.6.0 to 0.9.2 it first upgrades to 0.9.3, so run it a second time. On 0.5.x, run `npm install @o-a/cms-agent@0.9.3 --save-exact` and `npx upgrade-site --finish` first. Then test and `npm run push --cms` as for any upgrade.
+- **Published as `@minamocms/framework`**, the first release under the new name, with everything listed under 0.10.0. 0.10.0 was tagged but never published: npm refused the unscoped name `minamo` as too like existing packages' names. Start a new site with `npx -p @minamocms/framework create-site my-site`.
+- **Moving a site from `@o-a/cms-agent`:** from `vhost/`, run `npm run upgrade`. On 0.9.3 that moves the site over to `@minamocms/framework`, switching its dependency and `server.js` to the new name; on 0.6.0 to 0.9.2 it first upgrades to 0.9.3, so run it a second time. On 0.5.x, run `npm install @o-a/cms-agent@0.9.3 --save-exact` and `npx upgrade-site --finish` first. Then test and `npm run push --cms` as for any upgrade.
 
 ## [0.10.0] - 2026-10-15 (not published)
 
@@ -24,7 +24,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Changed
 
-- **`npm run upgrade` looks for the CMS as `@minamocms/minamo`.** npm refused the unscoped name `minamo`, so 0.9.2's handover never finds anything to move to. From 0.9.3, once `@minamocms/minamo` has a newer version, the upgrade moves the site over to it.
+- **`npm run upgrade` looks for the CMS as `@minamocms/framework`.** npm refused the unscoped name `minamo`, so 0.9.2's handover never finds anything to move to. From 0.9.3, once `@minamocms/framework` has a newer version, the upgrade moves the site over to it.
 
 ## [0.9.2] - 2026-10-15
 

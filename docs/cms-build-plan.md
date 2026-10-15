@@ -22,7 +22,7 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 
 ### The agent is a package
 
-The server is developed in its own repository and published as an npm package, `@minamocms/minamo` (it was `@o-a/cms-agent` up to 0.9.x; npm refused the unscoped `minamo`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
+The server is developed in its own repository and published as an npm package, `@minamocms/framework` (it was `@o-a/cms-agent` up to 0.9.x; npm refused the unscoped `minamo`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
 
 A site is therefore a thin scaffold, restructured during Phase 2 (Group N) to four top-level folders - everything a marketing manager touches lives under `content/`, everything a web designer touches lives under `theme/`, uploaded media lives under `media/`, and the site's own serving configuration lives under `vhost/` (a real vhost's own scope in hosting terms - Apache/nginx/CyberPanel - the per-site serving configuration, not a multi-tenancy concept). `media/` is its own top-level folder rather than nesting inside `content/` specifically so its git-ignored status is a single, unambiguous `.gitignore` line at the site root - not a partial exception carved out of a folder every other line in this document describes as always git-tracked:
 
@@ -37,7 +37,7 @@ my-site/
   /media/             uploaded assets, served at /media/... - gitignored, see constraint 2
   /vhost/
     site.config.json  config holds ports, tokens hash, media driver settings, preview settings
-    package.json      depends on @minamocms/minamo at a pinned version
+    package.json      depends on @minamocms/framework at a pinned version
     package-lock.json
     server.js         imports the agent, points it one directory up (the real site root), starts
 ```
@@ -76,7 +76,7 @@ The agent package follows semver. The capabilities endpoint reports the agent pa
 
 Compiled TypeScript is readable JavaScript; minification obfuscates but does not secure. The commercial posture is licensing terms plus shipping only compiled output. Binary packaging (Node SEA, pkg, bytenode) is noted as possible but not planned: all are speed bumps rather than locks, and all make field debugging harder. This is a settled decision unless the commercial context changes.
 
-The commercial context did change during Phase 2: a source-available commercialisation strategy was agreed. **Decided (2026-10-15):** the product is Minamo. The framework (this repository, the `@minamocms/minamo` package) is public under the Functional Source License (FSL-1.1-ALv2), which allows any use except offering a competing product and converts each version to Apache 2.0 after two years. The admin is a private, paid service hosted by the owner; its source, design and plans are not public. This does not alter the packaging stance above, which concerns what ships inside the npm package.
+The commercial context did change during Phase 2: a source-available commercialisation strategy was agreed. **Decided (2026-10-15):** the product is Minamo. The framework (this repository, the `@minamocms/framework` package) is public under the Functional Source License (FSL-1.1-ALv2), which allows any use except offering a competing product and converts each version to Apache 2.0 after two years. The admin is a private, paid service hosted by the owner; its source, design and plans are not public. This does not alter the packaging stance above, which concerns what ships inside the npm package.
 
 ## Tech stack
 
