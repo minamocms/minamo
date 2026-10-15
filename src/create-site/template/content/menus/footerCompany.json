@@ -4,6 +4,6 @@
     { "label": "About", "url": "/about" },
     { "label": "Careers", "url": "/careers" },
     { "label": "Contact", "url": "/contact" },
-    { "label": "GitHub", "url": "https://github.com/o-a-com-au/minamo" }
+    { "label": "GitHub", "url": "https://github.com/minamocms/minamo" }
   ]
 }

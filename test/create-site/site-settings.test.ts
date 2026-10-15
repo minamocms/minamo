@@ -22,7 +22,7 @@ test('a new site\'s footer links and body font come from its site settings, and 
     };
 
     const before = await render();
-    assert.match(before, /href="https:\/\/github\.com\/o-a-com-au\/minamo" aria-label="GitHub"/);
+    assert.match(before, /href="https:\/\/github\.com\/minamocms\/minamo" aria-label="GitHub"/);
     assert.match(before, /aria-label="Discord"/);
     assert.doesNotMatch(before, /Georgia/);
 

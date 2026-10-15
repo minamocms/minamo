@@ -9,9 +9,9 @@
   "license": "FSL-1.1-ALv2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/o-a-com-au/minamo.git"
+    "url": "git+https://github.com/minamocms/minamo.git"
   },
-  "homepage": "https://github.com/o-a-com-au/minamo",
+  "homepage": "https://github.com/minamocms/minamo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

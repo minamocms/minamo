@@ -3,7 +3,7 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "github_url": { "type": "string", "group": "Social links", "title": "GitHub link", "default": "https://github.com/o-a-com-au/minamo" },
+    "github_url": { "type": "string", "group": "Social links", "title": "GitHub link", "default": "https://github.com/minamocms/minamo" },
     "x_url": { "type": "string", "group": "Social links", "title": "X (Twitter) link", "default": "https://x.com" },
     "discord_url": { "type": "string", "group": "Social links", "title": "Discord link", "default": "https://discord.com" },
     "body_font": { "type": "string", "group": "Typography", "title": "Body font", "enum": ["Sans-serif", "Serif"], "default": "Sans-serif" }

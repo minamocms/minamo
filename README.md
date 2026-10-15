@@ -93,9 +93,8 @@ install.
 - [`docs/guide-hosting.md`](docs/guide-hosting.md) - running a site somewhere real
 - [`docs/cms-build-plan.md`](docs/cms-build-plan.md) - full architecture and design rationale
 
-A friendlier, browsable documentation site (covering both this framework
-and the Minamo admin) is also available in source form at
-[o-a-com-au/o-a-com-au-granitecms-docs](https://github.com/o-a-com-au/o-a-com-au-granitecms-docs).
+A friendlier, browsable documentation site covers both this framework and
+the Minamo admin.
 
 ## Editing with Minamo
 
