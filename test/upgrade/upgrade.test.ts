@@ -139,17 +139,17 @@ test('finishUpgrade reports content it can\'t update rather than failing, and ch
   }
 });
 
-test('an upgrade moves to the minamo package once it has a newer version, and stays on @o-a/cms-agent until then', () => {
+test('an upgrade moves to the @minamocms/minamo package once it has a newer version, and stays on @o-a/cms-agent until then', () => {
   const own = { versions: ['0.9.1', '0.9.2'], latest: '0.9.2' };
   assert.deepEqual(chooseUpgradeSource('0.9.1', own, null), { name: '@o-a/cms-agent', ...own });
   assert.equal(chooseUpgradeSource('0.9.2', own, { versions: ['0.9.0'], latest: '0.9.0' }).name, '@o-a/cms-agent', 'an older package by that name is never taken');
-  const successor = { versions: ['0.10.0'], latest: '0.10.0' };
-  assert.deepEqual(chooseUpgradeSource('0.9.1', own, successor), { name: 'minamo', ...successor });
+  const successor = { versions: ['0.10.1'], latest: '0.10.1' };
+  assert.deepEqual(chooseUpgradeSource('0.9.1', own, successor), { name: '@minamocms/minamo', ...successor });
 });
 
-test('moving to minamo swaps the dependency over and keeps the site\'s own', () => {
+test('moving to @minamocms/minamo swaps the dependency over and keeps the site\'s own', () => {
   const before = { '@o-a/cms-agent': '0.9.1', marked: '15.0.0' };
-  assert.deepEqual(upgradedDependencies(before, 'minamo', '0.10.0'), { marked: '15.0.0', minamo: '0.10.0' });
+  assert.deepEqual(upgradedDependencies(before, '@minamocms/minamo', '0.10.1'), { marked: '15.0.0', '@minamocms/minamo': '0.10.1' });
   assert.deepEqual(upgradedDependencies(before, '@o-a/cms-agent', '0.9.2'), { '@o-a/cms-agent': '0.9.2', marked: '15.0.0' });
   assert.deepEqual(before, { '@o-a/cms-agent': '0.9.1', marked: '15.0.0' }, 'the original is not changed');
 });

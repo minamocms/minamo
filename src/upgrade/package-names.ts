@@ -1,11 +1,13 @@
 import { compareVersions } from './changelog.ts';
 
-// The CMS was published as @o-a/cms-agent up to 0.9.x, and as minamo
-// from 0.10.0. A site still on the old name upgrades to the new one:
+// The CMS was published as @o-a/cms-agent up to 0.9.x, and as
+// @minamocms/minamo from 0.10.1 (npm refused the unscoped "minamo" as
+// too like other packages' names, so 0.9.2's lookup of it never finds
+// anything). A site still on the old name upgrades to the new one:
 // npm run upgrade swaps the dependency over, then hands over to the
 // new package as it would to any newer version.
 export const PACKAGE_NAME = '@o-a/cms-agent';
-export const SUCCESSOR_NAME = 'minamo';
+export const SUCCESSOR_NAME = '@minamocms/minamo';
 
 export interface PublishedVersions {
   versions: string[];
