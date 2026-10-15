@@ -653,6 +653,14 @@ Agreed with the owner: a site-wide rollback in three steps - Recently deleted, t
 |---|---|---|
 | AG1 | GET /v1/deleted-pages lists pages deleted in the last 90 days, newest first with name, title, who and when, never moved or re-created ones, and each restores from its listed ref through POST /v1/git/revert | `test/services/deleted-pages.test.ts`, `test/routes/links.test.ts :: GET /v1/deleted-pages ...` |
 
+## Group AH: Rename to Minamo
+
+Decided by the owner (2026-10-15): the product is Minamo, and the framework is published to npm as `minamo` (from 0.10.0). A last `@o-a/cms-agent` release (0.9.2) hands existing sites over through `npm run upgrade`; it is published only after `minamo` exists, so the name it looks up is already ours.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AH1 | `npm run upgrade` on `@o-a/cms-agent` moves to `minamo` once it has a newer version (swapping the dependency, keeping the site's own, handing over to minamo's finish step), and upgrades as before until then | `test/upgrade/upgrade.test.ts :: an upgrade moves to the minamo package ...`, `:: moving to minamo swaps the dependency over ...`; `e2e/upgrade.check.ts` (unchanged path) |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.
