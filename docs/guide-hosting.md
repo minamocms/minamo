@@ -9,9 +9,9 @@ This document is for a developer who has run `create-site` and now wants to run 
 - **Persistent storage for the whole site root** (`content/`, `theme/`, `media/`, `vhost/data/`), not just `media/`. Drafts and publishes are commits made by the running server itself - if that disk isn't persistent, every commit since the last deploy is lost on restart.
 - No database, no required environment variables, no external service dependencies beyond the above.
 
-## Installing `@o-a/cms-agent`
+## Installing `minamo`
 
-`@o-a/cms-agent` is published to the public npm registry. A freshly scaffolded site's `vhost/package.json` already pins a real, exact-version dependency on it (never a `^` range - even a minor bump can be breaking pre-1.0), so a normal install just resolves it like any other dependency:
+`minamo` is published to the public npm registry (it was `@o-a/cms-agent` up to 0.9.x; see the deploying guide's "Upgrading the CMS" to move a site over). A freshly scaffolded site's `vhost/package.json` already pins a real, exact-version dependency on it (never a `^` range - even a minor bump can be breaking pre-1.0), so a normal install just resolves it like any other dependency:
 
 ```
 cd vhost
@@ -33,7 +33,7 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 | `ipAllowlist` | `[]` | Empty means no restriction, not "nothing allowed". |
 | `checkpointIntervalMs` | `1800000` (30 min) | How often open drafts are auto-committed as a safety checkpoint. |
 | `media.maxUploadBytes` | `10485760` (10MB) | |
-| `adminBaseUrl` | unset | An absolute `http(s)` URL for whichever admin instance manages this site. When set, `GET /admin` redirects there with `?site=<host>` appended, so visiting `yoursite.com/admin` jumps straight to that site's dashboard. When unset, `/admin` is never reserved at all - the route genuinely doesn't exist, so a real page at `content/pages/admin.json` (if you have one) works normally. Self-hosting your own admin? Point this at it - the agent never assumes anything about a specific admin app's own URL scheme. |
+| `adminBaseUrl` | unset | An absolute `http(s)` URL for the admin that manages this site, usually the Minamo admin. When set, `GET /admin` redirects there with `?site=<host>` appended, so visiting `yoursite.com/admin` jumps straight to that site's dashboard. When unset, `/admin` is never reserved at all - the route genuinely doesn't exist, so a real page at `content/pages/admin.json` (if you have one) works normally. The agent never assumes anything about the admin's own URL scheme, so any tool that speaks the `/v1/` API can be named here. |
 
 ## Backing up media
 
@@ -53,7 +53,7 @@ Clone or copy the scaffolded site onto the machine, install Node 22.16+ and `git
 
 `create-site` scaffolds a working `Dockerfile` and `docker-entrypoint.sh` automatically - nothing to write by hand. They live in `vhost/`, alongside the rest of the site's own serving config, keeping the top level down to just `content/`, `theme/`, `media/`, `vhost/`. The image is generic: it bakes the site (content, theme, an already-`npm install`ed `vhost/`) into `/seed` at build time, then at container start seeds an empty `/site` from that copy on first boot, and runs the server against `/site` from then on.
 
-Every later boot refreshes only the installed agent from the image (`vhost/package.json`, `vhost/package-lock.json` and `vhost/node_modules`), so redeploying with a newer `@o-a/cms-agent` upgrades a running site without touching its content. Everything else on the volume belongs to the live site and is left alone: content, drafts, media, `vhost/site.config.json` (its tokens), `vhost/server.js`, and the theme. A theme changed locally therefore does not reach an existing deployment by redeploying. After an upgrade, the volume's git working tree shows `vhost/package.json` as modified; that is expected, as nothing but a publish creates a commit.
+Every later boot refreshes only the installed CMS from the image (`vhost/package.json`, `vhost/package-lock.json`, `vhost/node_modules` and `vhost/server.js`, which imports it by name), so redeploying with a newer `minamo` upgrades a running site without touching its content. Everything else on the volume belongs to the live site and is left alone: content, drafts, media, `vhost/site.config.json` (its tokens), and the theme. A theme changed locally therefore does not reach an existing deployment by redeploying. After an upgrade, the volume's git working tree shows `vhost/package.json` as modified; that is expected, as nothing but a publish creates a commit.
 
 ```
 docker build -f vhost/Dockerfile -t my-site .

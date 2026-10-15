@@ -271,7 +271,7 @@ Define them in `theme/config/site_settings.json`, in the same JSON Schema form a
 - **Groups:** `"group"` puts settings under a collapsible heading on the Settings screen, as in a section's fields. Templates still read `{{ settings.<name> }}`.
 - **Links left empty:** check before rendering one, for example `{% if settings.instagram_url != blank %}...{% endif %}`.
 - **No file, no settings:** a theme without `config/site_settings.json` simply has none. A file that can't be used (not valid JSON, or a required property with no valid default) is left out with a start-up warning, like a broken section.
-- **Not `settings_schema.json`:** that is Shopify's name for its own, different format, and Shopify's VS Code extension marks a Granite file of that name as wrong. Sites made with 0.7.0 or 0.7.1 used it: it still works, with a warning to rename it to `site_settings.json`.
+- **Not `settings_schema.json`:** that is Shopify's name for its own, different format, and Shopify's VS Code extension marks a Minamo file of that name as wrong. Sites made with 0.7.0 or 0.7.1 used it: it still works, with a warning to rename it to `site_settings.json`.
 
 The values are content, saved in `content/settings.json`. Editors' changes go live as soon as they save, like menus (there are no drafts), and each save is recorded in the site's history. `npm run pull` and `npm run push` carry them with the rest of the content.
 

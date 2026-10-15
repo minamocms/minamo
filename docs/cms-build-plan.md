@@ -1,4 +1,4 @@
-# CMS build plan (v3)
+# Minamo build plan (v3)
 
 ## Purpose of this document
 
@@ -22,7 +22,7 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 
 ### The agent is a package
 
-The server is developed in its own repository and published as a scoped npm package (working name `@o-a/cms-agent`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
+The server is developed in its own repository and published as an npm package, `minamo` (it was `@o-a/cms-agent` up to 0.9.x). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
 
 A site is therefore a thin scaffold, restructured during Phase 2 (Group N) to four top-level folders - everything a marketing manager touches lives under `content/`, everything a web designer touches lives under `theme/`, uploaded media lives under `media/`, and the site's own serving configuration lives under `vhost/` (a real vhost's own scope in hosting terms - Apache/nginx/CyberPanel - the per-site serving configuration, not a multi-tenancy concept). `media/` is its own top-level folder rather than nesting inside `content/` specifically so its git-ignored status is a single, unambiguous `.gitignore` line at the site root - not a partial exception carved out of a folder every other line in this document describes as always git-tracked:
 
@@ -37,14 +37,14 @@ my-site/
   /media/             uploaded assets, served at /media/... - gitignored, see constraint 2
   /vhost/
     site.config.json  config holds ports, tokens hash, media driver settings, preview settings
-    package.json      depends on @o-a/cms-agent at a pinned version
+    package.json      depends on minamo at a pinned version
     package-lock.json
     server.js         imports the agent, points it one directory up (the real site root), starts
 ```
 
 "Drop into your own Node environment" is: clone or unzip the scaffold, `cd vhost`, `npm install`, `node server.js`. A `create-site` scaffolding command (a small companion package or a template repo) generates this structure with a starter theme.
 
-Not every content type has a draft state. Pages go through the full draft-then-publish workflow described below (there is no separate "post" content type - `author`/`publishDate`/`tags` are optional fields any page may carry, see docs/phase-3-checklist.md's post/page merge group). Menus and redirects do not: both are edited directly with an immediate commit, the same low-ceremony model, because neither has a meaningful "preview before publish" step worth the overhead of a separate draft file.
+Not every content type has a draft state. Pages go through the full draft-then-publish workflow described below (there is no separate "post" content type - `author`/`publishDate`/`tags` are optional fields any page may carry; the post type was folded into pages in Phase 3). Menus and redirects do not: both are edited directly with an immediate commit, the same low-ceremony model, because neither has a meaningful "preview before publish" step worth the overhead of a separate draft file.
 
 ### Prerequisites, checked at startup
 
@@ -76,7 +76,7 @@ The agent package follows semver. The capabilities endpoint reports the agent pa
 
 Compiled TypeScript is readable JavaScript; minification obfuscates but does not secure. The commercial posture is licensing terms plus shipping only compiled output. Binary packaging (Node SEA, pkg, bytenode) is noted as possible but not planned: all are speed bumps rather than locks, and all make field debugging harder. This is a settled decision unless the commercial context changes.
 
-The commercial context did change during Phase 2: a source-available, open-core commercialisation strategy was agreed (free self-hosted engine, paid hosted admin, paid enterprise features), captured in `docs/commercialisation-brochure.md`. This does not alter the packaging stance above, which concerns what ships inside the npm package, not whether the agent's source repository is publicly viewable. Whether the source repository itself is made public is a separate, still-open decision.
+The commercial context did change during Phase 2: a source-available commercialisation strategy was agreed. **Decided (2026-10-15):** the product is Minamo. The framework (this repository, the `minamo` package) is public under the Functional Source License (FSL-1.1-ALv2), which allows any use except offering a competing product and converts each version to Apache 2.0 after two years. The admin is a private, paid service hosted by the owner; its source, design and plans are not public. This does not alter the packaging stance above, which concerns what ships inside the npm package.
 
 ## Tech stack
 
@@ -128,7 +128,7 @@ The public renderer reads `/content/` only. An authenticated preview mode (token
 
 ## Codebases and repositories
 
-Three repositories now, not two:
+Three kinds of repository:
 
 ### Agent (the product, one repo, published as a package)
 
@@ -148,17 +148,9 @@ Three repositories now, not two:
 
 As shown under Distribution model: content, drafts, theme, media, redirects, config, a lockfile, and a three-line entry point. The gitignored `/data/search-index.sqlite` lives here at runtime, rebuilt on demand, never committed - `/media/` is gitignored for a different reason (constraint 2), not because it's disposable the way the index is.
 
-### Admin (control plane, one instance total)
+### Admin (private, hosted)
 
-```
-/admin/
-  /src/
-    /editor/          sidebar editor UI, draft editing, live preview iframe, publish and discard controls
-    /history/         page-level git history view, diff display, revert
-    /registry/        connected sites, their URLs, scoped API tokens, agent versions from capabilities
-    /auth/            login for agency staff and/or clients; identity passed through to sites for commit authorship
-  package.json        entirely separate
-```
+The admin is Minamo's hosted service, in its own private repository with its own design notes and checklists. Nothing in this repository depends on it: it is one client of the versioned `/v1/` API, and a site can be run, edited through that API, and deployed without it.
 
 ## The site agent API contract
 
@@ -252,13 +244,7 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 
 ### Phase 3: admin application
 
-- Site registry (add a site, store its URL and scoped tokens, rotate tokens, display agent version from capabilities)
-- Sidebar editor UI reading and writing drafts through the agent API, with autosave
-- Conflict handling UI for 409 responses built into the editor from the start
-- Explicit publish and discard controls; publish prompts for or generates a commit message
-- Live preview via iframe and postMessage against the site's authenticated preview mode
-- Page history view using the git log and show endpoints, with diff display and one-click revert; checkpoint commits hidden by default
-- Section and block editing matching the Shopify customiser interaction model
+Built in the admin's own private repository, where its plan and checklist now live. The agent-side work it needed (preview, history, page moves, menus, site settings, push and pull, upgrades and more) was built here and is recorded in this repository's git history and `CHANGELOG.md`. Work on the framework since then is tracked in `docs/framework-checklist.md`.
 
 ### Phase 4: media
 
@@ -270,7 +256,7 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 - **Deletion**: `DELETE /v1/media/:path`, permanent, no soft-delete/trash. `/media/` has no git history behind it the way `/content/` does (that's the whole point of not git-tracking it), so a delete - or an overwrite, though content-addressed naming makes accidental overwrite unlikely - is genuinely unrecoverable. A broken image on a live page as a result is an accepted trade-off, not something this phase guards against
 - **Serving and resizing**: behind a separate `ImageTransformDriver` interface (deliberately independent of the storage driver - storage and resizing are two different axes, not one bundled choice; local storage plus a self-hosted resizer, or object storage plus no resizing, are both valid combinations). MVP implementation is a plain passthrough: serves the original file as-is, no image-processing dependency of any kind, native or pure-JS. **The URL shape is decided now even though resizing isn't built yet**: Shopify-style query params, e.g. `image.jpg?width=1500` - the passthrough driver accepts and silently ignores these params, so nothing in stored content JSON needs migrating once real resizing exists. Dynamic resizing itself is deferred, not dropped: an imgproxy-backed (self-hosted, sitting in front of whichever storage driver is active - not a required cloud dependency) or in-process (`sharp` vs a pure-JS resizer is an open choice, revisit when this is actually built) driver is later, separately-scoped work behind the same interface. Building it also means revisiting response caching / a bound on permitted width values first - an unauthenticated route doing attacker-parameterised CPU work on every request with no cache is a real DoS surface, deferred along with the resizing work itself, not forgotten
 - **No Liquid filter for image URLs, ever** (CLAUDE.md's ban on dynamically registered tags/filters) - matches Group K's existing asset-URL precedent. Resize params are baked into the URL stored in content JSON by the admin's media picker at pick-time, never computed at template-render time
-- **Media picker in the admin UI.** Browse/upload/select, writing the picked file's URL into whichever `ImageField`-shaped setting is being edited (see `app-granite-cms-admin`'s own `format: "image"` field work - already stores `{ url, focalX, focalY }` and needs no shape change for this). Picker-grid thumbnails: ship the plain version first (lazy-loaded original images, browser-scaled) - a client-side, Canvas-API-generated companion thumbnail file per upload (zero new dependency, no per-request compute, scoped only to this picker's own browsing UX, not a substitute for the deferred transform driver) is a later addition if the plain version actually feels slow, not built speculatively now
+- **Media picker in the admin UI.** Browse/upload/select, writing the picked file's URL into whichever `ImageField`-shaped setting is being edited (`format: "image"` already stores `{ url, focalX, focalY }` and needs no shape change for this). Picker-grid thumbnails: ship the plain version first (lazy-loaded original images, browser-scaled) - a client-side, Canvas-API-generated companion thumbnail file per upload (zero new dependency, no per-request compute, scoped only to this picker's own browsing UX, not a substitute for the deferred transform driver) is a later addition if the plain version actually feels slow, not built speculatively now
 
 ### Phase 5: AI (explicitly deferred, not part of MVP)
 
@@ -284,9 +270,9 @@ All previously-listed items here are now resolved (see their inline `~~strikethr
 
 - ~~Whether the preview overlay should support previewing a *set* of drafts as a batch (a "release" concept) or per-page preview is enough~~ **Resolved: per-page only for Phase 3.** One page, one draft, one publish button - a coordinated multi-page launch is still possible by publishing pages one at a time in quick succession. No new agent-side work is implied either way: `POST /v1/publish` already accepts multiple draft paths in one commit, and preview already overlays every current draft regardless of which single page is being viewed. A "pending changes" batch-publish screen is a cheap, natural follow-up if real usage asks for it, not built speculatively now.
 
-No open items remain blocking Phase 3. See `docs/phase-3-checklist.md` for the phase's own group breakdown and acceptance criteria.
+No open items remain blocking Phase 3.
 
-Not blocking anything, parked for later: **multiple starter themes for `create-site`.** Idea is roughly 6 starter themes (built from the section/template work done in `granite-starter`), bundled inside the package under `src/create-site/themes/` and chosen via an interactive `create-site` prompt (or a `--theme` flag) - not a website zip download, since a raw download skips `npm install`/config wiring and goes stale against package updates. A theme gallery with visual previews on the marketing website is still worth doing, but the "use this" action from that gallery should hand the user the CLI command (with the theme flag filled in), the way Astro/Next.js template galleries work, not trigger a file download. Revisit once there are actually 6 themes worth choosing between.
+Not blocking anything, parked for later: **multiple starter themes for `create-site`.** Idea is roughly 6 starter themes (built from the section/template work done in the `granite-starter` test site), bundled inside the package under `src/create-site/themes/` and chosen via an interactive `create-site` prompt (or a `--theme` flag) - not a website zip download, since a raw download skips `npm install`/config wiring and goes stale against package updates. A theme gallery with visual previews on the marketing website is still worth doing, but the "use this" action from that gallery should hand the user the CLI command (with the theme flag filled in), the way Astro/Next.js template galleries work, not trigger a file download. Revisit once there are actually 6 themes worth choosing between.
 
 ## Definition of done for MVP
 

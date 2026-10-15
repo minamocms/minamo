@@ -1,8 +1,8 @@
-# CLAUDE.md - cms-agent
+# CLAUDE.md - minamo (the framework)
 
 ## What this project is
 
-A self-hosted, git-backed CMS agent, distributed as a compiled npm package. The full build plan is in `docs/cms-build-plan.md` and is the source of truth for architecture decisions. Read it before starting any phase. The current phase's acceptance criteria live in `docs/phase-1-checklist.md` (and later `phase-2-checklist.md`, etc.).
+Minamo: a self-hosted, git-backed CMS agent, published to npm as `minamo` (it was `@o-a/cms-agent` up to 0.9.x). This repository is public under FSL-1.1-ALv2. The admin is a separate, private, paid hosted service in its own repository (`~/Websites/minamo-admin`): nothing about its internals, plans or pricing belongs in this repository's docs. The full build plan is in `docs/cms-build-plan.md` and is the source of truth for architecture decisions. Read it before starting any phase. Current acceptance criteria live in `docs/framework-checklist.md` (Phases 1 and 2 in `docs/phase-1-checklist.md` and `phase-2-checklist.md`).
 
 ## Non-negotiable constraints (do not relitigate these in code)
 
