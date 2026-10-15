@@ -93,8 +93,8 @@ install.
 - [`docs/guide-hosting.md`](docs/guide-hosting.md) - running a site somewhere real
 - [`docs/cms-build-plan.md`](docs/cms-build-plan.md) - full architecture and design rationale
 
-A friendlier, browsable documentation site covers both this framework and
-the Minamo admin.
+Friendlier, browsable documentation, covering both this framework and the
+Minamo admin, is at [docs.minamocms.com](https://docs.minamocms.com).
 
 ## Editing with Minamo
 
