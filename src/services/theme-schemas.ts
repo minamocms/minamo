@@ -76,9 +76,9 @@ function loadTypeSchemas(typesDir: string, kind: 'Section' | 'Block'): TypeSchem
 //
 // Not Shopify's config/settings_schema.json, which 0.7.0 and 0.7.1 used:
 // Shopify's VS Code extension checks any file of that name against
-// Shopify's own format (a list of groups), marking Granite's as wrong -
+// Shopify's own format (a list of groups), marking Minamo's as wrong -
 // which is how one real site had its file rewritten into Shopify's form.
-// A settings_schema.json in Granite's form is still read, with a warning
+// A settings_schema.json in Minamo's form is still read, with a warning
 // to rename it; one in Shopify's form (or anything else) is Shopify's,
 // and left alone.
 const SETTINGS_FILE = 'site_settings.json';

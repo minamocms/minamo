@@ -1,7 +1,7 @@
 {
   "schemaVersion": 7,
   "name": "Docs",
-  "title": "Docs — Granite CMS",
+  "title": "Docs - Minamo",
   "type": "page",
   "layout": "theme",
   "published": true,
@@ -11,7 +11,7 @@
       "type": "hero",
       "settings": {
         "eyebrow": "Docs",
-        "heading": "Everything you need to run Granite CMS.",
+        "heading": "Everything you need to run Minamo.",
         "subheading": "Setup, content modelling and deployment guides, kept short enough to actually read."
       },
       "blocks": [

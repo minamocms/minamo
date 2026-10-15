@@ -25,7 +25,7 @@ export async function readCapabilities(siteUrl: string, fetchImpl?: typeof fetch
     unknown
   >;
   if (typeof body.agentVersion !== 'string' || typeof body.contentSchemaVersion !== 'number') {
-    throw new SiteSyncError('not-a-site', `${siteUrl} is not a Granite site`);
+    throw new SiteSyncError('not-a-site', `${siteUrl} is not a Minamo site`);
   }
   return { agentVersion: body.agentVersion, contentSchemaVersion: body.contentSchemaVersion };
 }

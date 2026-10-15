@@ -1,7 +1,7 @@
 {
   "schemaVersion": 7,
   "name": "Team",
-  "title": "Team — Granite CMS",
+  "title": "Team - Minamo",
   "type": "page",
   "layout": "theme",
   "published": true,
@@ -12,7 +12,7 @@
       "settings": {
         "eyebrow": "About / Team",
         "heading": "A small team, on purpose.",
-        "subheading": "Granite CMS is maintained by a handful of people who'd rather ship a focused tool than manage a plugin marketplace."
+        "subheading": "Minamo is maintained by a handful of people who'd rather ship a focused tool than manage a plugin marketplace."
       },
       "blocks": [
         { "id": "blk-team-cta", "type": "button", "settings": { "label": "Back to About", "url": "/about", "style": "secondary" } }

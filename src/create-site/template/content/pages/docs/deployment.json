@@ -1,7 +1,7 @@
 {
   "schemaVersion": 7,
   "name": "Deployment",
-  "title": "Deployment — Granite CMS",
+  "title": "Deployment - Minamo",
   "type": "page",
   "layout": "theme",
   "published": true,
@@ -12,7 +12,7 @@
       "settings": {
         "eyebrow": "Docs / Deployment",
         "heading": "Ship it anywhere Node.js runs.",
-        "subheading": "A Granite site is a process and a folder of files - a VPS, a container, or the client's own hosting all work the same way."
+        "subheading": "A Minamo site is a process and a folder of files - a VPS, a container, or the client's own hosting all work the same way."
       },
       "blocks": [
         { "id": "blk-deploy-cta", "type": "button", "settings": { "label": "Back to Docs", "url": "/docs", "style": "secondary" } }

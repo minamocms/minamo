@@ -2,7 +2,7 @@
 
 This file orients an AI coding agent working in this repository. It is written for the task of turning a visual design (a screenshot, a Figma export, a written brief) into working site code - not for general software engineering advice.
 
-This repo is a single site built on Granite CMS: a self-hosted, git-backed CMS. There is no framework source code here to read - the CMS itself is an installed dependency (`vhost/node_modules/@o-a/cms-agent`). Everything that makes this site what it is lives in two folders:
+This repo is a single site built on Minamo: a self-hosted, git-backed CMS. There is no framework source code here to read - the CMS itself is an installed dependency (`vhost/node_modules/minamo`). Everything that makes this site what it is lives in two folders:
 
 ```
 theme/     Liquid templates - the design/markup layer

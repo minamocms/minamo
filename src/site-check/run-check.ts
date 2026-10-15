@@ -28,7 +28,7 @@ export interface CheckResult {
 }
 
 // Link fields declared with format "uri", JSON Schema's word and
-// Granite's documented name before "url". Both still work, so this is a
+// Minamo's documented name before "url". Both still work, so this is a
 // suggestion, not a problem: themes drift to the one name over time.
 function uriFormatSuggestions(themeSchemas: ThemeSchemas): string[] {
   const suggestions: string[] = [];

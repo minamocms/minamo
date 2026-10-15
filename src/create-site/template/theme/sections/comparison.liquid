@@ -10,7 +10,7 @@
         <thead>
           <tr>
             <th>{{ section.settings.criteriaLabel }}</th>
-            <th class="col-granite">{{ section.settings.graniteLabel }}</th>
+            <th class="col-minamo">{{ section.settings.minamoLabel }}</th>
             <th>{{ section.settings.traditionalLabel }}</th>
           </tr>
         </thead>
@@ -27,13 +27,13 @@
   "title": "Comparison",
   "type": "object",
   "additionalProperties": false,
-  "required": ["heading", "criteriaLabel", "graniteLabel", "traditionalLabel"],
+  "required": ["heading", "criteriaLabel", "minamoLabel", "traditionalLabel"],
   "properties": {
     "eyebrow": { "type": "string" },
-    "heading": { "type": "string", "minLength": 1, "default": "How Granite compares" },
+    "heading": { "type": "string", "minLength": 1, "default": "How Minamo compares" },
     "subheading": { "type": "string" },
     "criteriaLabel": { "type": "string", "minLength": 1, "default": "Criteria" },
-    "graniteLabel": { "type": "string", "minLength": 1, "default": "Granite" },
+    "minamoLabel": { "type": "string", "minLength": 1, "default": "Minamo" },
     "traditionalLabel": { "type": "string", "minLength": 1, "default": "Traditional CMS" }
   },
   "allowedBlocks": ["comparison-row"]

@@ -223,7 +223,7 @@ test('an unusable settings schema is left out with a start-up warning, like a br
   }
 });
 
-test('config/settings_schema.json, the 0.7.0 name, is still read in Granite\'s form with a warning to rename it; in Shopify\'s form it is left alone', () => {
+test('config/settings_schema.json, the 0.7.0 name, is still read in Minamo\'s form with a warning to rename it; in Shopify\'s form it is left alone', () => {
   const root = mkdtempSync(join(tmpdir(), 'minamo-settings-schema-'));
   const schema = { type: 'object', properties: { announcement: { type: 'string', default: '' } } };
   try {

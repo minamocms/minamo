@@ -1,5 +1,5 @@
 /* ============================================================
-   Granite CMS — marketing theme
+   Minamo - marketing theme
    Charcoal / stone palette, one accent, system font stack.
    ============================================================ */
 
@@ -67,7 +67,7 @@ body {
   position: relative;
 }
 
-/* subtle granite-speckle texture, nod to the name without being literal */
+/* subtle speckle texture */
 body::before {
   content: "";
   position: fixed;
@@ -741,13 +741,13 @@ section {
   font-weight: 500;
 }
 
-.comparison-table .col-granite {
+.comparison-table .col-minamo {
   background: var(--accent-tint);
   color: var(--color-stone-900);
   font-weight: 600;
 }
 
-.comparison-table thead .col-granite {
+.comparison-table thead .col-minamo {
   background: var(--accent);
   color: #fff;
 }
