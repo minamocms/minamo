@@ -8,7 +8,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Changed
 
-- **`npm run upgrade` looks for the CMS as `@minamocms/minamo`.** npm refused the unscoped name `minamo`, so 0.9.2's handover never finds anything to move to. From 0.9.3, once `@minamocms/minamo` has a newer version, the upgrade moves the site over to it, swapping the dependency in `vhost/package.json`, then finishes as any upgrade does. A site on 0.9.2 or earlier runs `npm run upgrade` twice: once to reach 0.9.3, then again to move over.
+- **`npm run upgrade` looks for the CMS as `@minamocms/framework`.** npm refused the unscoped name `minamo`, so 0.9.2's handover never finds anything to move to. From 0.9.3, once `@minamocms/framework` has a newer version, the upgrade moves the site over to it, swapping the dependency in `vhost/package.json`, then finishes as any upgrade does. A site on 0.9.2 or earlier runs `npm run upgrade` twice: once to reach 0.9.3, then again to move over.
 
 ## [0.9.2] - 2026-10-15
 
