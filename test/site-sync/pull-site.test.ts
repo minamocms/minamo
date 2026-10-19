@@ -200,7 +200,7 @@ test('npm run pull asks for the token when none is given, and pulls with the ans
     const code = await new Promise<number | null>((resolve) => child.on('exit', resolve));
 
     assert.equal(code, 0, stderr);
-    assert.match(stderr, new RegExp(`API token for ${live.url.replace(/[.]/g, '\\.')} \\(hidden\\): `));
+    assert.match(stderr, new RegExp(`Access token for ${live.url.replace(/[.]/g, '\\.')} \\(hidden\\): `));
     assert.ok(!stdout.includes(TOKEN) && !stderr.includes(TOKEN), 'the token is never printed');
     assert.match(stdout, /Pulled from/);
     assert.deepEqual(readFileSync(join(localRoot, 'media', MEDIA_NAME)), MEDIA_BYTES);

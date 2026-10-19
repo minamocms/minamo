@@ -13,7 +13,7 @@ try {
   const { raw } = scaffoldSite(targetDir);
   console.log(`Created a new site at ${targetDir}`);
   console.log('');
-  console.log('Your API token (save this now - it will not be shown again):');
+  console.log('Your access token (save this now - it will not be shown again):');
   console.log(`  ${raw}`);
   console.log('');
   console.log('Next steps:');

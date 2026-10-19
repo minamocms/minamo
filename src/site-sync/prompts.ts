@@ -1,5 +1,5 @@
 // Asks questions on the terminal - the live site's address, then its
-// API token without showing it. A token typed on the command line (or
+// access token without showing it. A token typed on the command line (or
 // in CMS_TOKEN=... before it) ends up in shell history; typed here, it
 // goes nowhere but this process.
 

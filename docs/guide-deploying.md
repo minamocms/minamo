@@ -45,7 +45,7 @@ You only do this once per site. Deploying again later never changes the live sit
 npm run pull
 
 Live site address: my-site.example
-API token for https://my-site.example (hidden):
+Access token for https://my-site.example (hidden):
 
 What do you want to pull?
   [x] Content  (pages, menus, redirects, images, site settings)
@@ -58,7 +58,7 @@ Use the arrow keys and space to choose, then Enter.
 - **What it never does:** commit anything. Check the result with `git diff`.
 - **When it refuses:** if you have uncommitted changes that it would overwrite. Commit them first.
 
-The token is the site's API token, the same one the admin uses. It is never shown as you type it, and never saved.
+The token is the site's access token, the same one the admin uses. It is never shown as you type it, and never saved.
 
 ## Putting your changes live: `npm run push`
 

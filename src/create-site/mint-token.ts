@@ -49,7 +49,7 @@ export function mintToken(siteDir: string, scopes: Scope[]): { raw: string } {
   config.tokens = tokens;
 
   writeFileSync(configPath, JSON.stringify(config, null, 2));
-  commitPaths(siteDir, ['vhost/site.config.json'], 'chore: mint a new API token', CHECKPOINT_AUTHOR);
+  commitPaths(siteDir, ['vhost/site.config.json'], 'chore: mint a new access token', CHECKPOINT_AUTHOR);
 
   return { raw: token.raw };
 }

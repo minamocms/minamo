@@ -15,7 +15,7 @@ try {
   const scopes = parseScopes(scopesArg);
   const siteDir = resolve(process.cwd(), targetArg);
   const { raw } = mintToken(siteDir, scopes);
-  console.log('New API token (save this now - it will not be shown again):');
+  console.log('New access token (save this now - it will not be shown again):');
   console.log(`  ${raw}`);
   console.log('');
   console.log(`Scopes: ${scopes.join(', ')}`);

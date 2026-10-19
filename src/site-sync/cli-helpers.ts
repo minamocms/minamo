@@ -33,12 +33,12 @@ export async function ask(question: string, hidden = false): Promise<string> {
 }
 
 export const TOKEN_HELP =
-  'The token is the live site\'s API token (the same one the admin uses), with the "content" and "media" scopes.';
+  'The token is the live site\'s access token (the same one the admin uses), with the "content" and "media" scopes.';
 
 // CMS_TOKEN and --token still work for scripts, but either leaves the
 // token in shell history; asked for, it goes nowhere.
 export async function resolveToken(args: SyncArgs, siteUrl: string): Promise<string> {
-  const token = args.token ?? process.env.CMS_TOKEN ?? (await ask(`API token for ${siteUrl} (hidden): `, true));
+  const token = args.token ?? process.env.CMS_TOKEN ?? (await ask(`Access token for ${siteUrl} (hidden): `, true));
   if (!token) {
     console.error('No token entered.');
     console.error(TOKEN_HELP);

@@ -54,7 +54,7 @@ npm install
 npm start
 ```
 
-Visit `http://localhost:3000`. `create-site` prints a real API token to
+Visit `http://localhost:3000`. `create-site` prints a real access token to
 your terminal when it scaffolds the site - that's what the Minamo admin
 (or a plain `curl`) uses to authenticate against the site's
 `/v1/` API. Lost it, or need a second one? See the `mint-token` command in

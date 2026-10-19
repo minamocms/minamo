@@ -261,7 +261,7 @@ export async function startServer(
     try {
       tunnel = await (options.startTunnel ?? startDevTunnel)(serverConfig.port);
       console.log(`Tunnel open: ${tunnel.url}`);
-      console.log('This URL is publicly reachable for as long as this process runs - anyone with it (and a valid API token) can reach this site. Do not leave it running unattended.');
+      console.log('This URL is publicly reachable for as long as this process runs - anyone with it (and a valid access token) can reach this site. Do not leave it running unattended.');
     } catch (error) {
       // The site itself is already up and correctly serving locally -
       // a failed tunnel is not a reason to fail the whole boot.
