@@ -4,6 +4,12 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-04
+
+### Fixed
+
+- **`push` no longer mistakes a `/media/` path in a page's text for an image the page uses.** It counted every `/media/...` it found anywhere in a page, so a page that mentions one in prose or an example command (a docs or marketing page, say) stopped the push with "These images are used by pages being pushed, but are missing here and on the live site". Now only a value that is wholly a `/media/` path, which is how an image or video field stores its file, counts as a reference.
+
 ## [0.10.2] - 2026-11-04
 
 ### Fixed

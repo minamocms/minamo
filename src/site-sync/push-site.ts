@@ -14,6 +14,36 @@ import { hashThemeFile } from '../services/theme-files.ts';
 
 // --- Planning: pure, so every rule is testable without a site ---
 
+const MEDIA_VALUE = /^\/media\/([A-Za-z0-9_-][A-Za-z0-9._-]*)$/;
+
+// The media a content file uses: string values that are wholly a
+// /media/ path, which is how an image or video field stores its file.
+// A /media/ path mentioned inside longer text (an example command on a
+// docs page, say) is prose, not a file the page needs.
+export function mediaReferencesIn(body: Buffer): string[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(body.toString('utf-8'));
+  } catch {
+    return [];
+  }
+  const names: string[] = [];
+  const walk = (value: unknown): void => {
+    if (typeof value === 'string') {
+      const match = MEDIA_VALUE.exec(value);
+      if (match) {
+        names.push(match[1] as string);
+      }
+    } else if (Array.isArray(value)) {
+      value.forEach(walk);
+    } else if (value !== null && typeof value === 'object') {
+      Object.values(value).forEach(walk);
+    }
+  };
+  walk(data);
+  return names;
+}
+
 export type PushAction = 'create' | 'update' | 'delete';
 
 export interface PushChange {
@@ -129,9 +159,8 @@ export function planPush(record: ContentRecord, local: LocalContent, live: LiveC
     if (change.action === 'delete') {
       continue;
     }
-    const text = (local.files.get(change.path) as Buffer).toString('utf-8');
-    for (const match of text.matchAll(/\/media\/([A-Za-z0-9_-][A-Za-z0-9._-]*)/g)) {
-      referenced.add(match[1] as string);
+    for (const name of mediaReferencesIn(local.files.get(change.path) as Buffer)) {
+      referenced.add(name);
     }
   }
   const mediaToUpload: string[] = [];
