@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-04
+
 ### Fixed
 
 - **A site with no `media/` folder serves and stores media normally.** `media/` is git-ignored, so a site deployed by a host that builds from its repository (Railway, for one) starts without it. Until now every request for a media file there answered 500 instead of 404, and the first upload failed the same way. A missing folder now reads as an empty one, and the first upload creates it.
