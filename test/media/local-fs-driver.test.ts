@@ -96,3 +96,38 @@ test('a traversal-shaped filename is rejected safely by every method, never esca
     cleanup();
   }
 });
+
+// A freshly deployed site has no media folder at all: media/ is
+// git-ignored, so a host that builds from the repository (Railway,
+// for one) never creates it. Every method must behave as it does for
+// an empty folder, not fail on the folder's absence.
+test('get returns null when the media folder does not exist yet', async () => {
+  const { root, cleanup } = tmpRoot();
+  try {
+    const driver = openLocalFsMediaDriver(join(root, 'media'));
+    assert.equal(await driver.get('a-photo.jpg'), null);
+  } finally {
+    cleanup();
+  }
+});
+
+test('put creates the media folder when it does not exist yet', async () => {
+  const { root, cleanup } = tmpRoot();
+  try {
+    const driver = openLocalFsMediaDriver(join(root, 'media'));
+    await driver.put('a-photo.jpg', Buffer.from('hello'));
+    assert.deepEqual(await driver.get('a-photo.jpg'), Buffer.from('hello'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('delete returns false when the media folder does not exist yet', async () => {
+  const { root, cleanup } = tmpRoot();
+  try {
+    const driver = openLocalFsMediaDriver(join(root, 'media'));
+    assert.equal(await driver.delete('a-photo.jpg'), false);
+  } finally {
+    cleanup();
+  }
+});

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
 import { bootSite } from '../../src/boot.ts';
 import { loadSiteConfig } from '../../src/config.ts';
 import { putMedia } from '../../src/media/manage-media.ts';
@@ -275,6 +276,20 @@ test('an image still answers a range too - nothing here is video-specific', asyn
 
     assert.equal(response.statusCode, 206);
     assert.equal(response.body, 'ABCD');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a site with no media folder at all answers 404 for a media file, not 500', async () => {
+  // A fresh deploy built from the repository has no media/ (it is
+  // git-ignored), so the folder is simply absent until the first upload.
+  const { app, config, cleanup } = await buildMediaPublicTestServer();
+  try {
+    rmSync(config.mediaRoot, { recursive: true, force: true });
+    const response = await app.inject({ method: 'GET', url: '/media/photo-3f9a2b7c1e04.jpg' });
+    assert.equal(response.statusCode, 404);
   } finally {
     await app.close();
     cleanup();

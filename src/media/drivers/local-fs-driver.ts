@@ -35,6 +35,11 @@ export function openLocalFsMediaDriver(root: string): MediaStorageDriver {
     },
 
     async put(filename: string, bytes: Buffer): Promise<void> {
+      // The root first: sanitisePath resolves the root's real path, which
+      // fails outright on a fresh deploy whose media folder was never
+      // created (media/ is git-ignored, so a host building from the
+      // repository has none).
+      mkdirSync(root, { recursive: true });
       const resolved = sanitisePath(root, filename);
       // Harmless no-op for a flat, content-addressed namespace (media
       // filenames never contain subdirectories) - matches
@@ -50,6 +55,11 @@ export function openLocalFsMediaDriver(root: string): MediaStorageDriver {
     },
 
     async get(filename: string): Promise<Buffer | null> {
+      // No media folder yet is no media yet: nothing to find, and a read
+      // has no business creating the folder.
+      if (!existsSync(root)) {
+        return null;
+      }
       let resolved: string;
       try {
         resolved = sanitisePath(root, filename);
@@ -75,6 +85,9 @@ export function openLocalFsMediaDriver(root: string): MediaStorageDriver {
       // reading as "already didn't exist", matching
       // manage-redirects.ts's own not-found-is-a-distinct-reason
       // precedent.
+      if (!existsSync(root)) {
+        return false;
+      }
       const resolved = sanitisePath(root, filename);
       if (!existsSync(resolved)) {
         return false;
