@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-05
+
 ### Added
 
 - **PDFs in the media library.** `POST /v1/media` (and `seed-media`) now accept `.pdf` files, for the price lists, menus, brochures and forms editors link to. A PDF is checked by its contents, not just its name: a file without the `%PDF-` header is refused, so nothing else can be passed off as a document. PDFs are served as `application/pdf`, so they open in the browser's own viewer. Office files are still refused.
