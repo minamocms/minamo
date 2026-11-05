@@ -36,6 +36,16 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 | `media.maxDocumentUploadBytes` | `26214400` (25MB) | The cap for PDFs, the one document type. Larger by default because a print-ready brochure or a long price list routinely runs past 10MB. |
 | `adminBaseUrl` | unset | An absolute `http(s)` URL for the admin that manages this site, usually the Minamo admin. When set, `GET /admin` redirects there with `?site=<host>` appended, so visiting `yoursite.com/admin` jumps straight to that site's dashboard. When unset, `/admin` is never reserved at all - the route genuinely doesn't exist, so a real page at `content/pages/admin.json` (if you have one) works normally. The agent never assumes anything about the admin's own URL scheme, so any tool that speaks the `/v1/` API can be named here. |
 
+## Access tokens
+
+The site keeps only a sha256 hash of each token (`tokens` in `vhost/site.config.json`), so a lost token can't be recovered, only replaced. `mint-token <site-directory> [--scopes content,theme,media]` adds a new token (all three scopes by default), commits the changed config, and prints the raw token once. It never changes or removes existing tokens. Tokens are read only at boot, so **restart the site** before using the new one.
+
+- **Before the site is live:** from the site's root, run `npx -p @minamocms/framework mint-token .`, then restart. The config is git-tracked and baked into the image, so a first deploy starts with that token.
+- **On a live site:** a redeploy never replaces the volume's `vhost/site.config.json` (see Docker below), so a token minted locally is refused by the live site. Mint it where the site runs instead. For the scaffolded Docker image, open a shell in the container (`railway ssh`, `fly ssh console`, `docker exec`), run `cd /site/vhost && npx -p @minamocms/framework mint-token /site`, then restart the service and paste the token into the admin's **Change access token**.
+- **Removing a token** (one that may have leaked, not merely been lost): delete its entry from `tokens` where the site runs and restart. Entries are hashes and can't be told apart, so when unsure, clear the list and mint fresh tokens for every client.
+
+Always name the package with `-p @minamocms/framework`: a bare `npx mint-token` run anywhere the framework isn't installed fetches an unrelated npm package of the same name.
+
 ## Backing up media
 
 `media/` is deliberately not git-tracked (it's binary, user-uploaded content, not source). Only one storage driver exists today - local filesystem. There is no object-storage (S3-compatible) driver yet, so backing up `media/` is entirely the operator's own responsibility on any host, container-based or not.
