@@ -98,3 +98,22 @@ test('a mixed batch seeds the good file and reports both', () => {
     cleanup();
   }
 });
+
+test('seeds a real PDF, and skips a file merely named .pdf', () => {
+  const { siteDir, cleanup } = tempSite();
+  try {
+    const real = join(siteDir, 'price-list.pdf');
+    const fake = join(siteDir, 'fake.pdf');
+    writeFileSync(real, '%PDF-1.7\n%fake but well-headed\n');
+    writeFileSync(fake, '<html>not a pdf</html>');
+
+    const result = seedMedia(siteDir, [real, fake]);
+
+    assert.equal(result.entries[0]?.status, 'seeded');
+    assert.match(result.entries[0]?.url ?? '', /^\/media\/price-list-[0-9a-f]{12}\.pdf$/);
+    assert.equal(result.entries[1]?.status, 'skipped-invalid-type');
+    assert.match(result.entries[1]?.reason ?? '', /not a PDF/);
+  } finally {
+    cleanup();
+  }
+});

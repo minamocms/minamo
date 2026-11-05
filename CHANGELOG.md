@@ -4,6 +4,16 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Added
+
+- **PDFs in the media library.** `POST /v1/media` (and `seed-media`) now accept `.pdf` files, for the price lists, menus, brochures and forms editors link to. A PDF is checked by its contents, not just its name: a file without the `%PDF-` header is refused, so nothing else can be passed off as a document. PDFs are served as `application/pdf`, so they open in the browser's own viewer. Office files are still refused.
+- **`media.maxDocumentUploadBytes`** in `site.config.json`: the size cap for PDFs, 25MB by default. Images and videos keep `media.maxUploadBytes` (10MB by default).
+- **`GET /v1/capabilities`** reports `maxDocumentUploadBytes` and `mediaUploadExtensions`, so the admin offers PDF uploads only to sites that take them.
+
+### Fixed
+
+- **`push` uploads media a page links to from rich text.** Since 0.10.3 it counted only whole `/media/` values (image, video and link fields), so a PDF linked inside rich text would have gone live without its file. `href` and `src` attributes now count too; a `/media/` path mentioned in prose still doesn't.
+
 ## [0.10.3] - 2026-11-04
 
 ### Fixed

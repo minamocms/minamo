@@ -30,6 +30,9 @@ export const MIME_TYPES: Record<string, string> = {
   // rescues it by sniffing. Same failure robots.txt already hit.
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
+  // Uploaded documents: served as itself so the browser's own PDF viewer
+  // opens it (an octet-stream would only ever download).
+  '.pdf': 'application/pdf',
   '.ico': 'image/x-icon',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',

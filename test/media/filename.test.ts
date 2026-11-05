@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMediaFilename } from '../../src/media/filename.ts';
+import { buildMediaFilename, isDocumentExtension, uploadContentProblem } from '../../src/media/filename.ts';
 
 test('same bytes produce the same hash regardless of the original filename', () => {
   const bytes = Buffer.from('identical content');
@@ -33,4 +33,18 @@ test('the extension is preserved and lowercased', () => {
 test('an all-punctuation original filename falls back to a non-empty slug', () => {
   const name = buildMediaFilename('!!!.jpg', Buffer.from('x'));
   assert.match(name, /^file-[0-9a-f]{12}\.jpg$/);
+});
+
+test('a .pdf must really be a PDF: the %PDF- header, within the first 1024 bytes', () => {
+  assert.equal(uploadContentProblem('.pdf', Buffer.from('%PDF-1.7\n...')), null);
+  assert.equal(uploadContentProblem('.PDF', Buffer.from('%PDF-1.4')), null);
+  assert.equal(uploadContentProblem('.pdf', Buffer.concat([Buffer.alloc(100, 0x20), Buffer.from('%PDF-1.7')])), null, 'a little leading junk is allowed, as readers allow it');
+  assert.match(uploadContentProblem('.pdf', Buffer.from('<html><script>alert(1)</script></html>')) ?? '', /not a PDF/);
+  assert.match(uploadContentProblem('.pdf', Buffer.concat([Buffer.alloc(2000, 0x20), Buffer.from('%PDF-1.7')])) ?? '', /not a PDF/);
+});
+
+test('only PDF counts as a document; images and videos are not checked by content here', () => {
+  assert.equal(isDocumentExtension('.pdf'), true);
+  assert.equal(isDocumentExtension('.jpg'), false);
+  assert.equal(uploadContentProblem('.jpg', Buffer.from('anything')), null);
 });

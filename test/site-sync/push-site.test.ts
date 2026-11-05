@@ -142,20 +142,21 @@ test('planPush: uploads only media the pushed pages use and the live site lacks;
   assert.deepEqual(plan.mediaMissing, ['gone-333333333333.jpg']);
 });
 
-test('planPush: a /media/ path inside longer text is prose, not an image the page uses', () => {
+test('planPush: a /media/ path inside longer text is prose, not an image the page uses; a rich-text link to one is a use', () => {
   const record: ContentRecord = { syncedAt: '', files: {}, redirects: [] };
   const body = Buffer.from(
     JSON.stringify({
       image: { url: '/media/used-555555555555.jpg' },
       code: '$ npm run seed-media -- .. photo.jpg\nphoto.jpg -> /media/photo-3f9a2b7c1e04.jpg',
       text: 'Uploads land in /media/ as /media/name-hash.jpg',
+      body: '<p>See the <a href="/media/price-list-666666666666.pdf">price list</a> and <a href=\'/media/menu-777777777777.pdf#page=2\'>menu</a>.</p>',
     }),
   );
   const local: LocalContent = { files: new Map([[P, body]]), redirects: [], mediaNames: new Set(), settings: null };
   const live: LiveContent = { live: new Map(), drafts: new Map(), redirects: [], settings: null };
   const plan = planPush(record, local, live, new Set());
   assert.deepEqual(plan.mediaToUpload, []);
-  assert.deepEqual(plan.mediaMissing, ['used-555555555555.jpg']);
+  assert.deepEqual(plan.mediaMissing, ['menu-777777777777.pdf', 'price-list-666666666666.pdf', 'used-555555555555.jpg']);
 });
 
 // --- For real: pull from a running site, change things here, push back ---

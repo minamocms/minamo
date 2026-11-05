@@ -23,6 +23,8 @@ export interface RateLimitConfig {
 // so nesting now avoids a breaking config shape change then.
 export interface MediaConfig {
   maxUploadBytes: number;
+  // Documents (PDF) only; images and videos keep maxUploadBytes.
+  maxDocumentUploadBytes: number;
 }
 
 export interface ServerConfig {
@@ -47,6 +49,9 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = { max: 60, windowMs: 60000 };
 // above a properly web-optimised image, well below an unoptimised raw
 // camera export.
 const DEFAULT_MEDIA_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+// 25MB: room for a print-ready brochure or a long price list, which
+// routinely run past the 10MB that keeps images honest.
+const DEFAULT_MEDIA_MAX_DOCUMENT_UPLOAD_BYTES = 25 * 1024 * 1024;
 // The build plan's own literal example ("every 30 minutes"), adopted
 // as-is rather than re-litigated - its own [REVIEW] flag was about
 // whether checkpoints belong on main vs a dedicated branch (resolved:
@@ -144,28 +149,35 @@ function parseRateLimit(value: unknown): RateLimitConfig {
   return { max, windowMs };
 }
 
+function parseMediaLimit(record: Record<string, unknown>, key: string, fallback: number): number {
+  const limit = record[key];
+  if (limit === undefined) {
+    return fallback;
+  }
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1) {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "media.${key}" must be a positive integer, got ${JSON.stringify(limit)}`,
+    );
+  }
+  return limit;
+}
+
 function parseMedia(value: unknown): MediaConfig {
   if (value === undefined) {
-    // Absent entirely -> the default limit applies, matching every
+    // Absent entirely -> the default limits apply, matching every
     // other optional-object field's own "absence is not an error"
     // philosophy.
-    return { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES };
+    return { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES, maxDocumentUploadBytes: DEFAULT_MEDIA_MAX_DOCUMENT_UPLOAD_BYTES };
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new StartupCheckError('invalid-site-config', 'site.config.json\'s "media" must be an object');
   }
   const record = value as Record<string, unknown>;
-  const maxUploadBytes = record.maxUploadBytes;
-  if (maxUploadBytes === undefined) {
-    return { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES };
-  }
-  if (typeof maxUploadBytes !== 'number' || !Number.isInteger(maxUploadBytes) || maxUploadBytes < 1) {
-    throw new StartupCheckError(
-      'invalid-site-config',
-      `site.config.json's "media.maxUploadBytes" must be a positive integer, got ${JSON.stringify(maxUploadBytes)}`,
-    );
-  }
-  return { maxUploadBytes };
+  return {
+    maxUploadBytes: parseMediaLimit(record, 'maxUploadBytes', DEFAULT_MEDIA_MAX_UPLOAD_BYTES),
+    maxDocumentUploadBytes: parseMediaLimit(record, 'maxDocumentUploadBytes', DEFAULT_MEDIA_MAX_DOCUMENT_UPLOAD_BYTES),
+  };
 }
 
 function parseTrustProxy(value: unknown): boolean {
@@ -296,7 +308,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
       trustProxy: false,
       ipAllowlist: [],
       checkpointIntervalMs: DEFAULT_CHECKPOINT_INTERVAL_MS,
-      media: { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES },
+      media: parseMedia(undefined),
       adminBaseUrl: undefined,
     };
   }

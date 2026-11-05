@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { CURRENT_SCHEMA_VERSION } from '../migrations/index.ts';
 import { NO_AUTH_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { DRIVER_NAME } from '../search/drivers/node-sqlite-driver.ts';
+import { ALLOWED_UPLOAD_EXTENSIONS } from '../media/filename.ts';
 
 interface PackageJson {
   version?: string;
@@ -20,6 +21,7 @@ export function readAgentVersion(): string {
 
 export interface CapabilitiesRouteOptions {
   maxUploadBytes: number;
+  maxDocumentUploadBytes: number;
 }
 
 export const capabilitiesRoutes: FastifyPluginAsync<CapabilitiesRouteOptions> = async (
@@ -37,5 +39,9 @@ export const capabilitiesRoutes: FastifyPluginAsync<CapabilitiesRouteOptions> = 
     // limits.fileSize in media.ts), rather than a separately hardcoded
     // guess that could drift.
     maxMediaUploadBytes: opts.maxUploadBytes,
+    // Since 0.11.0. Their absence tells the admin a site predates PDF
+    // uploads, so it offers images and videos only there.
+    maxDocumentUploadBytes: opts.maxDocumentUploadBytes,
+    mediaUploadExtensions: [...ALLOWED_UPLOAD_EXTENSIONS],
   }));
 };

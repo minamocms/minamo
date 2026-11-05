@@ -27,6 +27,18 @@ Decided by the owner (2026-10-15): the product is Minamo, and the framework is p
 | AH2 | The package is `@minamocms/framework` (licence `FSL-1.1-ALv2`): new sites depend on it and import it; finishing an upgrade leaves only `@minamocms/framework` in `vhost/package.json` and puts back a `server.js` importing it; push's version check reads either name | `test/upgrade/upgrade.test.ts :: a site still on @o-a/cms-agent finishes its upgrade on @minamocms/framework ...`, `:: upgradedDependencies names the CMS once ...`; `test/create-site/generate-site.test.ts :: scaffoldSite pins @minamocms/framework ...`; `test/site-sync/deploy.test.ts :: deployedVersionProblem ...` |
 | AH3 | A redeploy refreshes `vhost/server.js` on the live volume along with the installed CMS, so a live site moved to `@minamocms/framework` still starts | `test/create-site/generate-site.test.ts` (docker-entrypoint.sh refresh test: server.js follows the image) |
 
+## Group AI: PDFs in the media library
+
+Agreed with the owner (2026-11-05): editors can upload PDFs (price lists, menus, brochures, forms) and link to them. PDF only; Office files stay out. The admin side (library tiles, a Documents group in link suggestions, image and video pickers that leave documents out) is in the admin's own repository.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AI1 | `POST /v1/media` accepts a `.pdf` whose bytes carry the `%PDF-` header (within the first 1024 bytes) and serves it as `application/pdf` with `nosniff`; a file merely named `.pdf` is refused with 415 and nothing is stored, and Office files are still refused | `test/routes/media.test.ts` ("accepts a real PDF", "rejects a file named .pdf that is not a PDF", "still rejects Office files"), `test/media/filename.test.ts` ("a .pdf must really be a PDF") |
+| AI2 | Documents have their own size cap, `media.maxDocumentUploadBytes` (25MB by default), separate from the image and video cap; an invalid value fails at startup | `test/routes/media.test.ts` ("documents have their own size limit", "a PDF over the document limit"), `test/server-config.test.ts` ("media.maxDocumentUploadBytes sets the PDF limit", "non-positive-integer media.maxDocumentUploadBytes") |
+| AI3 | `GET /v1/capabilities` reports `maxDocumentUploadBytes` and `mediaUploadExtensions`, so the admin knows which sites take PDFs | `test/server.test.ts` ("A3: GET /v1/capabilities") |
+| AI4 | `seed-media` applies the same rules, PDF content check included | `test/media/seed-media.test.ts` ("seeds a real PDF, and skips a file merely named .pdf") |
+| AI5 | `push` uploads media a page links to from rich text (`href`/`src` attributes) as well as whole image, video and link values, while a `/media/` path in prose still isn't counted | `test/site-sync/push-site.test.ts` ("a /media/ path inside longer text is prose... a rich-text link to one is a use") |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

@@ -32,14 +32,15 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 | `trustProxy` | `false` | Set `true` when a reverse proxy or platform edge sits in front of this process, so client IPs (used by `ipAllowlist` and rate limiting) are read correctly rather than seeing the proxy's own address. |
 | `ipAllowlist` | `[]` | Empty means no restriction, not "nothing allowed". |
 | `checkpointIntervalMs` | `1800000` (30 min) | How often open drafts are auto-committed as a safety checkpoint. |
-| `media.maxUploadBytes` | `10485760` (10MB) | |
+| `media.maxUploadBytes` | `10485760` (10MB) | The cap for images and videos. |
+| `media.maxDocumentUploadBytes` | `26214400` (25MB) | The cap for PDFs, the one document type. Larger by default because a print-ready brochure or a long price list routinely runs past 10MB. |
 | `adminBaseUrl` | unset | An absolute `http(s)` URL for the admin that manages this site, usually the Minamo admin. When set, `GET /admin` redirects there with `?site=<host>` appended, so visiting `yoursite.com/admin` jumps straight to that site's dashboard. When unset, `/admin` is never reserved at all - the route genuinely doesn't exist, so a real page at `content/pages/admin.json` (if you have one) works normally. The agent never assumes anything about the admin's own URL scheme, so any tool that speaks the `/v1/` API can be named here. |
 
 ## Backing up media
 
 `media/` is deliberately not git-tracked (it's binary, user-uploaded content, not source). Only one storage driver exists today - local filesystem. There is no object-storage (S3-compatible) driver yet, so backing up `media/` is entirely the operator's own responsibility on any host, container-based or not.
 
-To seed starter media into a site directly - before deploying, without a server running - use `seed-media <site-directory> <path> [<path> ...]` (one of this package's own installed bin commands, alongside `create-site` and `mint-token`). It computes the same content-addressed filename a real `POST /v1/media` upload would, so the result is indistinguishable from one. It enforces the same image-type allowlist as the real upload route (no SVGs); a disallowed file is skipped, not a reason to abort the rest of the batch.
+To seed starter media into a site directly - before deploying, without a server running - use `seed-media <site-directory> <path> [<path> ...]` (one of this package's own installed bin commands, alongside `create-site` and `mint-token`). It computes the same content-addressed filename a real `POST /v1/media` upload would, so the result is indistinguishable from one. It enforces the same allowlist as the real upload route (images, short videos and PDFs; no SVGs, no Office files), including the check that a `.pdf` really is a PDF; a disallowed file is skipped, not a reason to abort the rest of the batch.
 
 ## Three supported hosting shapes
 

@@ -85,6 +85,7 @@ export function buildServer(
     tokens: serverConfig.tokens,
     ipAllowlist: serverConfig.ipAllowlist,
     maxUploadBytes: serverConfig.media.maxUploadBytes,
+    maxDocumentUploadBytes: serverConfig.media.maxDocumentUploadBytes,
   });
 
   // Registered without a /v1 prefix, alongside v1Routes: this is the

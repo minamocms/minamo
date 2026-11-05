@@ -15,11 +15,13 @@ import { hashThemeFile } from '../services/theme-files.ts';
 // --- Planning: pure, so every rule is testable without a site ---
 
 const MEDIA_VALUE = /^\/media\/([A-Za-z0-9_-][A-Za-z0-9._-]*)$/;
+const MEDIA_ATTRIBUTE = /\b(?:href|src)\s*=\s*["']\/media\/([A-Za-z0-9_-][A-Za-z0-9._-]*)(?=["'?#])/g;
 
 // The media a content file uses: string values that are wholly a
-// /media/ path, which is how an image or video field stores its file.
-// A /media/ path mentioned inside longer text (an example command on a
-// docs page, say) is prose, not a file the page needs.
+// /media/ path, which is how an image, video or link field stores its
+// file, and href/src attributes inside rich text (a link to a PDF, say).
+// A /media/ path mentioned anywhere else in longer text (an example
+// command on a docs page) is prose, not a file the page needs.
 export function mediaReferencesIn(body: Buffer): string[] {
   let data: unknown;
   try {
@@ -33,6 +35,9 @@ export function mediaReferencesIn(body: Buffer): string[] {
       const match = MEDIA_VALUE.exec(value);
       if (match) {
         names.push(match[1] as string);
+      }
+      for (const attribute of value.matchAll(MEDIA_ATTRIBUTE)) {
+        names.push(attribute[1] as string);
       }
     } else if (Array.isArray(value)) {
       value.forEach(walk);

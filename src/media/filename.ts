@@ -23,7 +23,7 @@ import { basename, extname } from 'node:path';
 // not a second, independently-invented convention.
 const HASH_LENGTH = 12;
 
-// Images and short videos - not a general document library. Video was
+// Images, short videos and PDFs - not a general document library. Video was
 // added deliberately (confirmed with the user) for silent looping
 // clips used where a hero image would otherwise go; long-form video
 // belongs on YouTube/Vimeo and needs nothing from here. The upload cap
@@ -42,7 +42,35 @@ const HASH_LENGTH = 12;
 // constant, specifically so seed-media.ts (an offline tool with no
 // HTTP request to validate) enforces the exact same rule rather than
 // a second, independently-maintained copy of it.
-export const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']);
+//
+// PDF is the one document type (price lists, menus, brochures, forms an
+// editor links to). Office files stay out: they can't be shown in a
+// browser, and each would need its own content check. A document has
+// its own, larger size cap (media.maxDocumentUploadBytes, 25MB by
+// default), since a print-ready brochure is routinely bigger than any
+// image a page should carry.
+export const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.pdf']);
+
+export const DOCUMENT_EXTENSIONS = new Set(['.pdf']);
+
+export function isDocumentExtension(extension: string): boolean {
+  return DOCUMENT_EXTENSIONS.has(extension.toLowerCase());
+}
+
+// The PDF format puts its "%PDF-" header within the first 1024 bytes
+// (readers tolerate a little leading junk, so the spec allows it). A
+// document is checked by what it is, not just what it's called, so a
+// renamed HTML or script file can't be passed off as one. Returns why
+// the bytes don't match the extension, or null when they do.
+const PDF_HEADER = Buffer.from('%PDF-');
+const PDF_HEADER_WINDOW = 1024;
+
+export function uploadContentProblem(extension: string, bytes: Buffer): string | null {
+  if (extension.toLowerCase() === '.pdf' && !bytes.subarray(0, PDF_HEADER_WINDOW).includes(PDF_HEADER)) {
+    return 'This file is named .pdf but is not a PDF';
+  }
+  return null;
+}
 
 export function buildMediaFilename(originalFilename: string, bytes: Buffer): string {
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0, HASH_LENGTH);

@@ -32,6 +32,8 @@ test('A3: GET /v1/capabilities returns the agent package version, the content sc
       contentSchemaVersion: number;
       sqliteDriver: string;
       maxMediaUploadBytes: number;
+      maxDocumentUploadBytes: number;
+      mediaUploadExtensions: string[];
     };
     // Asserted against the real sources of truth, not hardcoded
     // expected strings that would silently drift.
@@ -42,6 +44,10 @@ test('A3: GET /v1/capabilities returns the agent package version, the content sc
     // site) - proves this endpoint reports whatever the server was
     // actually configured with, not a hardcoded literal of its own.
     assert.equal(body.maxMediaUploadBytes, 10 * 1024 * 1024);
+    // Since 0.11.0: how the admin knows this site takes PDFs, and how big.
+    assert.equal(body.maxDocumentUploadBytes, 25 * 1024 * 1024);
+    assert.ok(body.mediaUploadExtensions.includes('.pdf'));
+    assert.ok(!body.mediaUploadExtensions.includes('.svg'));
   } finally {
     await app.close();
     cleanup();

@@ -2,7 +2,7 @@ import { extname } from 'node:path';
 import multipart from '@fastify/multipart';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { SiteConfig } from '../config.ts';
-import { ALLOWED_UPLOAD_EXTENSIONS } from '../media/filename.ts';
+import { ALLOWED_UPLOAD_EXTENSIONS, isDocumentExtension, uploadContentProblem } from '../media/filename.ts';
 import { ManageMediaError, deleteMedia, listMedia, putMedia } from '../media/manage-media.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
@@ -13,6 +13,7 @@ export interface MediaRouteOptions {
   config: SiteConfig;
   tokens: TokenEntry[];
   maxUploadBytes: number;
+  maxDocumentUploadBytes: number;
 }
 
 function sendManageMediaError(reply: FastifyReply, error: ManageMediaError): void {
@@ -27,7 +28,7 @@ async function handleListMedia(_request: FastifyRequest, reply: FastifyReply, co
   reply.send(await listMedia(config));
 }
 
-async function handleUploadMedia(request: FastifyRequest, reply: FastifyReply, config: SiteConfig): Promise<void> {
+async function handleUploadMedia(request: FastifyRequest, reply: FastifyReply, opts: MediaRouteOptions): Promise<void> {
   const data = await request.file();
   if (!data) {
     reply.code(400).send({ statusCode: 400, error: 'Bad Request', message: 'Expected a multipart file upload' });
@@ -58,7 +59,20 @@ async function handleUploadMedia(request: FastifyRequest, reply: FastifyReply, c
   // body into memory first - this is what "capped at the stream
   // level" actually means in practice.
   const bytes = await data.toBuffer();
-  const result = await putMedia(config, data.filename, bytes);
+  // The stream itself is capped at the larger of the two limits (see
+  // the multipart registration below), so this is where an image or
+  // video over its own, smaller cap is turned away.
+  const limit = isDocumentExtension(extension) ? opts.maxDocumentUploadBytes : opts.maxUploadBytes;
+  if (bytes.length > limit) {
+    reply.code(413).send({ statusCode: 413, error: 'Payload Too Large', message: `The file is larger than the ${limit}-byte limit` });
+    return;
+  }
+  const contentProblem = uploadContentProblem(extension, bytes);
+  if (contentProblem !== null) {
+    reply.code(415).send({ statusCode: 415, error: 'Unsupported Media Type', message: contentProblem });
+    return;
+  }
+  const result = await putMedia(opts.config, data.filename, bytes);
   reply.code(201).send(result);
 }
 
@@ -95,7 +109,11 @@ export const mediaRoutes: FastifyPluginAsync<MediaRouteOptions> = async (
   // multipart content-type parser and .file()/.files() decorations to
   // media routes only, leaving every other route file's default JSON
   // body parsing completely untouched.
-  await fastify.register(multipart, { limits: { fileSize: opts.maxUploadBytes } });
+  //
+  // Capped at whichever limit is larger, so the stream never buffers
+  // more than the biggest file either kind may be; the per-kind check
+  // happens in handleUploadMedia once the extension is known.
+  await fastify.register(multipart, { limits: { fileSize: Math.max(opts.maxUploadBytes, opts.maxDocumentUploadBytes) } });
 
   fastify.get(
     '/media',
@@ -106,7 +124,7 @@ export const mediaRoutes: FastifyPluginAsync<MediaRouteOptions> = async (
   fastify.post(
     '/media',
     { preHandler: requireScope(opts.tokens, 'media'), config: WRITE_ROUTE_RATE_LIMIT },
-    async (request, reply) => handleUploadMedia(request, reply, opts.config),
+    async (request, reply) => handleUploadMedia(request, reply, opts),
   );
 
   fastify.delete(

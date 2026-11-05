@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
-import { ALLOWED_UPLOAD_EXTENSIONS, buildMediaFilename } from './filename.ts';
+import { ALLOWED_UPLOAD_EXTENSIONS, buildMediaFilename, uploadContentProblem } from './filename.ts';
 
 export interface SeedMediaEntry {
   sourcePath: string;
@@ -75,12 +75,17 @@ export function seedMedia(siteRoot: string, sourcePaths: string[]): SeedMediaRes
       entries.push({
         sourcePath,
         status: 'skipped-invalid-type',
-        reason: `"${extension}" is not an accepted image type`,
+        reason: `"${extension}" is not an accepted media type`,
       });
       continue;
     }
 
     const bytes = readFileSync(sourcePath);
+    const contentProblem = uploadContentProblem(extension, bytes);
+    if (contentProblem !== null) {
+      entries.push({ sourcePath, status: 'skipped-invalid-type', reason: contentProblem });
+      continue;
+    }
     const name = buildMediaFilename(basename(sourcePath), bytes);
     // No existence check first: content-addressed naming means
     // re-seeding the same bytes writes identical bytes over identical

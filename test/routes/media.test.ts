@@ -297,3 +297,90 @@ test('a path traversal attempt against DELETE /v1/media/:path fails safely, neve
     cleanup();
   }
 });
+
+// --- PDFs (0.11.0) ---
+
+const PDF_BYTES = Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n');
+
+async function upload(app: ReturnType<typeof buildMediaTestServer>['app'], filename: string, mimetype: string, bytes: Buffer) {
+  const { payload, contentType } = buildMultipartBody(filename, mimetype, bytes);
+  return app.inject({
+    method: 'POST',
+    url: '/v1/media',
+    headers: { authorization: `Bearer ${MEDIA_TOKEN}`, 'content-type': contentType },
+    payload,
+  });
+}
+
+test('POST /v1/media accepts a real PDF, which is then served as application/pdf for the browser to open', async () => {
+  const { app, cleanup } = buildMediaTestServer();
+  try {
+    const response = await upload(app, 'Price List.pdf', 'application/pdf', PDF_BYTES);
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as { name: string; url: string };
+    assert.match(body.name, /^price-list-[0-9a-f]{12}\.pdf$/);
+
+    const fetched = await app.inject({ method: 'GET', url: body.url });
+    assert.equal(fetched.statusCode, 200);
+    assert.equal(fetched.headers['content-type'], 'application/pdf');
+    assert.equal(fetched.headers['x-content-type-options'], 'nosniff');
+    assert.deepEqual(fetched.rawPayload, PDF_BYTES);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/media rejects a file named .pdf that is not a PDF with 415, and stores nothing', async () => {
+  const { app, cleanup } = buildMediaTestServer();
+  try {
+    const response = await upload(app, 'invoice.pdf', 'application/pdf', Buffer.from('<html><script>alert(1)</script></html>'));
+    assert.equal(response.statusCode, 415);
+    assert.match((response.json() as { message: string }).message, /not a PDF/);
+
+    const list = await app.inject({ method: 'GET', url: '/v1/media', headers: { authorization: `Bearer ${MEDIA_TOKEN}` } });
+    assert.deepEqual(list.json(), []);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/media still rejects Office files - PDF did not open documents generally', async () => {
+  const { app, cleanup } = buildMediaTestServer();
+  try {
+    const response = await upload(app, 'brief.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', Buffer.from('PK\x03\x04'));
+    assert.equal(response.statusCode, 415);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('documents have their own size limit: a PDF over the image limit but under its own is accepted', async () => {
+  const { app, cleanup } = buildMediaTestServer({ media: { maxUploadBytes: 20, maxDocumentUploadBytes: 1000 } });
+  try {
+    assert.ok(PDF_BYTES.length > 20);
+    const pdf = await upload(app, 'brochure.pdf', 'application/pdf', PDF_BYTES);
+    assert.equal(pdf.statusCode, 201);
+
+    // The stream is capped at the larger (document) limit, so an image
+    // between the two limits is turned away by its own, smaller one.
+    const image = await upload(app, 'photo.jpg', 'image/jpeg', Buffer.alloc(100, 1));
+    assert.equal(image.statusCode, 413);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a PDF over the document limit is rejected with 413', async () => {
+  const { app, cleanup } = buildMediaTestServer({ media: { maxDocumentUploadBytes: 20 } });
+  try {
+    const response = await upload(app, 'brochure.pdf', 'application/pdf', PDF_BYTES);
+    assert.equal(response.statusCode, 413);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
