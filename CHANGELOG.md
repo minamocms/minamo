@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-06
+
 ### Changed
 
 - **`yoursite.com/admin` now leads to the Minamo admin on every site.** `adminBaseUrl` in `site.config.json` defaults to `https://cms.minamo.app`, so `GET /admin` redirects there (with `?site=<host>`, which opens that site's editor) without any setup, including on sites already live once they upgrade. Set `"adminBaseUrl": false` to turn it off, or another URL for a different admin. It is a plain redirect: the site contacts nothing itself, and passes on only its own address.
