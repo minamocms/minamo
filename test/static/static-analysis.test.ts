@@ -145,7 +145,6 @@ const ROUTE_SCOPE_ALLOWLIST = new Set<string>([
   'routes/media-public.ts', // intentionally and permanently exempt: uploaded media must be fetchable by any visitor's browser without a token, same reasoning as assets.ts
   'routes/sitemap.ts', // intentionally and permanently exempt: a sitemap must be fetchable by any crawler without a token, same reasoning as assets.ts/media-public.ts
   'routes/search-public.ts', // intentionally and permanently exempt: GET /search.json is read-only and only ever surfaces already-published data, so a theme's own front-end JS can call it directly with no token - same reasoning as assets.ts/media-public.ts
-  'routes/admin-redirect.ts', // intentionally and permanently exempt: a discovery aid anyone can hit before they have a token, same category as capabilities.ts - conditionally registered at all only when adminBaseUrl is configured (see server.ts)
 ]);
 
 function registersRoutes(contents: string): boolean {
@@ -280,8 +279,11 @@ test('H2: every write route (POST/PUT/DELETE/PATCH) under src/routes/ carries a 
 // WRITE_ROUTE_RATE_LIMIT (that one only ever applies to a write) or no
 // marker at all (unlimited, fine for a route only reachable with a
 // real token, not for one reachable by anyone).
+// GET /admin isn't listed: since 0.12.0 it's answered by the public
+// page route (routes/public.ts, via admin-redirect.ts) when /admin
+// would otherwise 404, and costs no more than that 404 would.
 test('H2: every zero-credential route carries its own, more generous rate-limit marker', () => {
-  for (const file of ['capabilities.ts', 'search-public.ts', 'admin-redirect.ts']) {
+  for (const file of ['capabilities.ts', 'search-public.ts']) {
     const contents = readFileSync(join(srcDir, 'routes', file), 'utf-8');
     assert.match(contents, /NO_AUTH_ROUTE_RATE_LIMIT/, `${file} should reference NO_AUTH_ROUTE_RATE_LIMIT`);
   }

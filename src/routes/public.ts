@@ -11,11 +11,15 @@ import { resolveUrl } from '../services/resolve-url.ts';
 import { findStaticFile, sendStaticFile } from '../services/static-file.ts';
 import { resolveSiteSettings } from '../services/site-settings.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
+import { ADMIN_PATH, sendAdminRedirect } from './admin-redirect.ts';
 
 export interface PublicRouteOptions {
   config: SiteConfig;
   theme: ThemeState;
   renderCache: RenderCache;
+  // Where a /admin with nothing else there redirects; undefined turns
+  // that off (see admin-redirect.ts).
+  adminBaseUrl?: string | undefined;
 }
 
 // resolveUrl's relativePath is relative to pagesRoot (e.g. "about.json"),
@@ -72,6 +76,7 @@ async function handlePublicRequest(
   // Which theme rendered a cached page: one pushed since makes it stale.
   themeGeneration: number,
   themeSchemas: ThemeSchemas,
+  adminBaseUrl: string | undefined,
 ): Promise<void> {
   // The public catch-all is registered without a /v1 prefix alongside
   // v1Routes (which has its own exact/prefixed routes). Fastify's
@@ -100,11 +105,21 @@ async function handlePublicRequest(
 
   const url = `/${request.params['*']}`;
 
+  // Every "nothing here" outcome below goes through this: only a /admin
+  // that would otherwise 404 becomes the admin redirect.
+  const notFound = async (): Promise<void> => {
+    if (url === ADMIN_PATH && adminBaseUrl !== undefined) {
+      sendAdminRedirect(reply, adminBaseUrl, request.host);
+      return;
+    }
+    await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
+  };
+
   try {
     const resolved = resolveUrl(config, url);
 
     if (resolved.kind === 'not-found') {
-      await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
+      await notFound();
       return;
     }
 
@@ -148,11 +163,11 @@ async function handlePublicRequest(
     // deliberately not 400, so a public, unauthenticated route never
     // gives an attacker a signal that distinguishes the two.
     if (error instanceof PathSafetyError) {
-      await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
+      await notFound();
       return;
     }
     if (error instanceof PageRenderError && error.reason === 'page-not-found') {
-      await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
+      await notFound();
       return;
     }
     // Any other PageRenderError reason (missing-section-type,
@@ -181,6 +196,7 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (
       opts.renderCache,
       theme.generation,
       theme.themeSchemas,
+      opts.adminBaseUrl,
     );
   });
 };

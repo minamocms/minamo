@@ -39,6 +39,16 @@ Agreed with the owner (2026-11-05): editors can upload PDFs (price lists, menus,
 | AI4 | `seed-media` applies the same rules, PDF content check included | `test/media/seed-media.test.ts` ("seeds a real PDF, and skips a file merely named .pdf") |
 | AI5 | `push` uploads media a page links to from rich text (`href`/`src` attributes) as well as whole image, video and link values, while a `/media/` path in prose still isn't counted | `test/site-sync/push-site.test.ts` ("a /media/ path inside longer text is prose... a rich-text link to one is a use") |
 
+## Group AJ: /admin leads to the admin by default
+
+Agreed with the owner (2026-11-06): so that "your site's address with /admin on the end" works for every Minamo site without setup, `adminBaseUrl` defaults to the hosted admin, with a one-line opt-out. The redirect is a fallback, never a reserved path.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AJ1 | With no `adminBaseUrl` in `site.config.json` (or no file at all), `GET /admin` redirects 302 to `https://cms.minamo.app/?site=<host>` | `test/server-config.test.ts` ("AJ1: ... defaults to the hosted Minamo admin"), `test/routes/admin-redirect.test.ts` ("AJ1: with no adminBaseUrl configured") |
+| AJ2 | `"adminBaseUrl": false` turns the redirect off (`/admin` is an ordinary missing page); any other non-URL value, `true` included, fails at startup | `test/server-config.test.ts` ("AJ2: ..."), `test/routes/admin-redirect.test.ts` ("AJ2: with \"adminBaseUrl\": false") |
+| AJ3 | A published page, a `redirects.json` entry or a `theme/root/admin` file at `/admin` is served instead of the redirect; an unpublished page there falls back to it | `test/routes/admin-redirect.test.ts` ("AJ3: ...") |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

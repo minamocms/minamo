@@ -18,7 +18,7 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024, maxDocumentUploadBytes: 25 * 1024 * 1024 },
-      adminBaseUrl: undefined,
+      adminBaseUrl: 'https://cms.minamo.app',
     });
   } finally {
     cleanup();
@@ -38,7 +38,7 @@ test('a site.config.json with a valid port is read correctly', () => {
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024, maxDocumentUploadBytes: 25 * 1024 * 1024 },
-      adminBaseUrl: undefined,
+      adminBaseUrl: 'https://cms.minamo.app',
     });
   } finally {
     cleanup();
@@ -91,7 +91,7 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024, maxDocumentUploadBytes: 25 * 1024 * 1024 },
-      adminBaseUrl: undefined,
+      adminBaseUrl: 'https://cms.minamo.app',
     });
   } finally {
     cleanup();
@@ -382,11 +382,36 @@ test('a site.config.json with an unknown scope value is a hard startup failure',
   }
 });
 
-test('a site.config.json missing adminBaseUrl leaves it undefined - the /admin redirect is opt-in, not defaulted', () => {
+test('AJ1: a site.config.json missing adminBaseUrl defaults to the hosted Minamo admin', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 3000 });
+    const config = loadServerConfig(siteRoot);
+    assert.equal(config.adminBaseUrl, 'https://cms.minamo.app');
+  } finally {
+    cleanup();
+  }
+});
+
+test('AJ2: "adminBaseUrl": false turns the /admin redirect off', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { adminBaseUrl: false });
     const config = loadServerConfig(siteRoot);
     assert.equal(config.adminBaseUrl, undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test('AJ2: "adminBaseUrl": true is a hard startup failure, not a way to turn it on', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { adminBaseUrl: true });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
   } finally {
     cleanup();
   }

@@ -34,7 +34,7 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 | `checkpointIntervalMs` | `1800000` (30 min) | How often open drafts are auto-committed as a safety checkpoint. |
 | `media.maxUploadBytes` | `10485760` (10MB) | The cap for images and videos. |
 | `media.maxDocumentUploadBytes` | `26214400` (25MB) | The cap for PDFs, the one document type. Larger by default because a print-ready brochure or a long price list routinely runs past 10MB. |
-| `adminBaseUrl` | unset | An absolute `http(s)` URL for the admin that manages this site, usually the Minamo admin. When set, `GET /admin` redirects there with `?site=<host>` appended, so visiting `yoursite.com/admin` jumps straight to that site's dashboard. When unset, `/admin` is never reserved at all - the route genuinely doesn't exist, so a real page at `content/pages/admin.json` (if you have one) works normally. The agent never assumes anything about the admin's own URL scheme, so any tool that speaks the `/v1/` API can be named here. |
+| `adminBaseUrl` | `https://cms.minamo.app` | Where `GET /admin` sends a visitor: the admin that manages this site, with `?site=<host>` appended so the admin opens this site's editor directly. Set another absolute `http(s)` URL for a different admin, or `false` to turn the redirect off. A real page, a redirect or a `theme/root/` file at `/admin` always wins, so a site can still have its own page there. See "Linking to the admin" below. |
 
 ## Access tokens
 
@@ -45,6 +45,14 @@ The site keeps only a sha256 hash of each token (`tokens` in `vhost/site.config.
 - **Removing a token** (one that may have leaked, not merely been lost): delete its entry from `tokens` where the site runs and restart. Entries are hashes and can't be told apart, so when unsure, clear the list and mint fresh tokens for every client.
 
 Always name the package with `-p @minamocms/framework`: a bare `npx mint-token` run anywhere the framework isn't installed fetches an unrelated npm package of the same name.
+
+## Linking to the admin
+
+Every site answers `yoursite.com/admin` by sending the visitor to its admin, the hosted Minamo admin at `https://cms.minamo.app` unless `adminBaseUrl` says otherwise. The address carries `?site=<host>`, so a signed-in editor lands straight in that site's editor; anyone not signed in signs in first and is then taken there. Someone without access to the site lands on the admin's usual first screen. It is a plain 302 redirect: the site itself contacts nothing, and the only thing passed along is its own address, in `?site=`.
+
+It only happens when `/admin` would otherwise be a 404. A published page at `/admin`, a `redirects.json` entry from `/admin`, or a `theme/root/admin` file is served instead. Only `/admin` itself redirects; `/admin/anything` is an ordinary missing page.
+
+To use a different admin, set `"adminBaseUrl": "https://admin.example.com"`. To turn it off, set `"adminBaseUrl": false`. On a live site this file lives on the server (see "Access tokens" above), and a change applies after a restart.
 
 ## Backing up media
 

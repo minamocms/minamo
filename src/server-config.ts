@@ -35,11 +35,10 @@ export interface ServerConfig {
   ipAllowlist: string[];
   checkpointIntervalMs: number;
   media: MediaConfig;
-  // Undefined, not a default value, unlike every other optional field
-  // above - this is genuinely opt-in (see routes/admin-redirect.ts):
-  // GET /admin is only ever registered as a route at all when this is
-  // set, so a site that doesn't configure it can still use "admin" as
-  // an ordinary page path if it wants to.
+  // Where GET /admin sends a visitor (routes/admin-redirect.ts).
+  // Defaults to the hosted Minamo admin; undefined only when the site
+  // turns the redirect off with "adminBaseUrl": false. A real page,
+  // redirect or root file at /admin always wins over it either way.
   adminBaseUrl: string | undefined;
 }
 
@@ -57,6 +56,10 @@ const DEFAULT_MEDIA_MAX_DOCUMENT_UPLOAD_BYTES = 25 * 1024 * 1024;
 // whether checkpoints belong on main vs a dedicated branch (resolved:
 // main), not this number specifically.
 const DEFAULT_CHECKPOINT_INTERVAL_MS = 1_800_000;
+// The hosted Minamo admin, so every site's /admin leads somewhere
+// useful without any setup. A site using another admin points this
+// elsewhere; one that wants nothing at /admin sets it to false.
+export const DEFAULT_ADMIN_BASE_URL = 'https://cms.minamo.app';
 const VALID_SCOPES = new Set<Scope>(['content', 'theme', 'media']);
 // sha256 digest, hex-encoded: exactly 64 lowercase hex characters.
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
@@ -224,12 +227,15 @@ function parseIpAllowlist(value: unknown): string[] {
 // it can ever reach a Location header.
 function parseAdminBaseUrl(value: unknown): string | undefined {
   if (value === undefined) {
+    return DEFAULT_ADMIN_BASE_URL;
+  }
+  if (value === false) {
     return undefined;
   }
   if (typeof value !== 'string' || value.length === 0) {
     throw new StartupCheckError(
       'invalid-site-config',
-      `site.config.json's "adminBaseUrl" must be a non-empty string, got ${JSON.stringify(value)}`,
+      `site.config.json's "adminBaseUrl" must be an http(s) URL, or false to turn the /admin redirect off, got ${JSON.stringify(value)}`,
     );
   }
   let parsed: URL;
@@ -309,7 +315,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
       ipAllowlist: [],
       checkpointIntervalMs: DEFAULT_CHECKPOINT_INTERVAL_MS,
       media: parseMedia(undefined),
-      adminBaseUrl: undefined,
+      adminBaseUrl: parseAdminBaseUrl(undefined),
     };
   }
 
