@@ -4,6 +4,12 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-09
+
+### Added
+
+- **An "Edit in Minamo" link from `npm run tunnel`.** Once the tunnel is open, the terminal prints `<adminBaseUrl>/local#site=<tunnel address>&key=<key>`. Opening it, signed in to the Minamo admin, edits the running site straight away without adding it to your websites, so there's no address to update each time the tunnel changes. The key is made fresh each time the site starts and accepted as an access token only while it runs; it's held in memory, never written to `site.config.json`. The address and key sit after the `#`, so browsers never send them to a server. A tunnel reopened at a new address prints a new link with the same key. Anyone with the link and a Minamo account can edit the site while it runs, so share it only with someone you mean to. Not printed when `adminBaseUrl` is `false`.
+
 ## [0.12.1] - 2026-11-09
 
 ### Changed
