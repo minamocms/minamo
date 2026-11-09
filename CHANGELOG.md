@@ -4,6 +4,16 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-09
+
+### Changed
+
+- **`npm run tunnel` is much faster when `cloudflared` is installed** (on a Mac, `brew install cloudflared`; no Cloudflare account needed). It then goes through a Cloudflare quick tunnel instead of localtunnel: in testing, about 0.1s a page against 1.3s, and 0.3s for a full page with its images against 11s, with localtunnel failing most of the images. Without `cloudflared` it still uses localtunnel, and says how to get the faster one. The address is printed only once it works, so opening it straight away no longer gets "not found". The startup line says which service is in use.
+
+### Fixed
+
+- **A dropped tunnel is reported and reopened** instead of failing silently (seen in the admin as a 503 or a page that never loads). localtunnel asks for the same address back; a reopened Cloudflare tunnel has a new one, and the terminal says so. A localtunnel error can no longer crash the site.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed
