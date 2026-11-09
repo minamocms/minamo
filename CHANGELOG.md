@@ -4,6 +4,18 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-09
+
+### Changed
+
+- **`npm run dev` is the one command for working on a site.** It asks whether to edit the site in Minamo while it runs (Enter for yes): yes opens the Cloudflare tunnel and prints the Edit in Minamo link, no runs it locally. `npm run dev -- --tunnel` or `-- --local` answers in advance; with no terminal to ask, it runs locally. It restarts the site whenever `theme/` changes, as before, but the tunnel, its address and the Edit in Minamo link now last the whole session: only the site underneath restarts, so an editor already open carries on. Shortcuts: `e` opens the editor, `o` the site, `r` restarts, `q` stops. A site that fails to start after a change shows why and starts again on the next change. It's the package's new `dev-site` command; `npm run upgrade` points the `dev` script at it.
+- **`npm start` just runs the site**, as live hosting needs: no tunnel, ever. At a terminal it mentions `npm run dev`.
+- **`npm run stop` ends `npm run dev` itself** (the site, the tunnel and the watching), not only the site under it.
+
+### Removed
+
+- **`npm run tunnel`, and `server.js`'s `--tunnel` option.** `npm run dev` asks instead. `npm run upgrade` removes the `tunnel` script from a site's `package.json` while it's still exactly as the CMS made it, and puts back a `server.js` without the option.
+
 ## [0.14.1] - 2026-11-09
 
 ### Security
