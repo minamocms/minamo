@@ -4,6 +4,19 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-09
+
+### Changed
+
+- **Clearer terminal output for every command.** At a terminal, the site and every command (`create-site`, `mint-token`, `check-site`, `seed-media`, `stop-site`, `pull-site`, `push-site`, `upgrade-site`) now use colour, symbols (✔ done, ! worth knowing, ✖ went wrong), progress spinners in place of silent waits, aligned results, and a box for the one thing to act on: the Edit in Minamo link, a new access token, push's warning before changing the live site. Problems say what went wrong and what to do, with the command to run. Anywhere else (a host's logs, output piped to a file, CI) the same words print as plain lines, with no colour or decoration. `MINAMO_PLAIN=1` gives plain output at a terminal too, and colour follows `NO_COLOR` and `FORCE_COLOR`. No dependency was added: it's built on Node's own `util.styleText`.
+- **Keyboard shortcuts while a site runs at a terminal:** `e` opens the Edit in Minamo link in your browser (with `--tunnel`), `o` opens the site, `q` stops it. `Ctrl+C` works as before, including under `npm run dev`.
+- **`npm run tunnel` tries Cloudflare three times** before giving up, and gives the tunnel's address out anyway if it's connected but slow to appear in DNS, rather than failing.
+- **`npm run upgrade` shows a spinner while npm installs the new version**, and npm's own output only if the install fails.
+
+### Removed
+
+- **The localtunnel fallback for `npm run tunnel`.** It was much slower than Cloudflare, often dropped images, and its "click to continue" page broke the admin's preview, so a tunnel through it looked open but showed a broken page. `npm run tunnel` now needs `cloudflared` (on a Mac, `brew install cloudflared`; no Cloudflare account needed); without it, the site starts as normal and says how to install it. This also removes the `localtunnel` dependency, and with it an old version of axios with known security advisories.
+
 ## [0.13.0] - 2026-11-09
 
 ### Added
