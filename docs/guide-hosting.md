@@ -130,7 +130,16 @@ This is a full render crawl, not a static content scan - it exists specifically 
 
 ## Local dev tunnel
 
-`npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL (via `localtunnel`), printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
+`npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL, printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
+
+The tunnel goes through one of two services:
+
+- **Cloudflare**, when the `cloudflared` program is installed. On a Mac: `brew install cloudflared`. On Windows: `winget install --id Cloudflare.cloudflared`. On Linux, see Cloudflare's downloads page. No Cloudflare account is needed. This is much faster: in testing, a page took about 0.1s through it against about 1.3s through localtunnel, and a full page with its images about 0.3s against 11s.
+- **localtunnel**, otherwise (or if `cloudflared` won't start). It works with nothing extra installed, but is slow and often drops images partway through loading. The startup output says which one is in use.
+
+The address (`https://<random words>.trycloudflare.com` or `https://<random words>.loca.lt`) is new each time the site starts, so update the website's address in the admin when it changes.
+
+If the tunnel drops while the site is running, it's reported in the terminal and reopened automatically. localtunnel asks for the same address back. A reopened Cloudflare tunnel has a new address, and the terminal says so.
 
 Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence; if the tunnel itself fails to start (network issue, etc.), the site keeps running locally regardless - a failed tunnel is never a reason the whole server fails to boot.
 

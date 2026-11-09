@@ -251,8 +251,11 @@ export async function startServer(
 
   if (options.tunnel) {
     try {
-      tunnel = await (options.startTunnel ?? startDevTunnel)(serverConfig.port);
-      console.log(`Tunnel open: ${tunnel.url}`);
+      // The real bound port, for the same reason as the message above.
+      const tunnelPort = address !== null && typeof address !== 'string' ? address.port : serverConfig.port;
+      tunnel = await (options.startTunnel ?? startDevTunnel)(tunnelPort);
+      const through = tunnel.provider === 'cloudflared' ? ' (Cloudflare)' : tunnel.provider === 'localtunnel' ? ' (localtunnel)' : '';
+      console.log(`Tunnel open${through}: ${tunnel.url}`);
       console.log('This URL is publicly reachable for as long as this process runs - anyone with it (and a valid access token) can reach this site. Do not leave it running unattended.');
     } catch (error) {
       // The site itself is already up and correctly serving locally -
