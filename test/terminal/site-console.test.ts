@@ -19,7 +19,7 @@ test('a tunnel that will not open: gives the reason and what to try', () => {
   createSiteConsole(captured.output).openingTunnel().failed(new Error('cloudflared stopped (exit code 1): 429 Too Many Requests'));
   const printed = captured.stderr.join('\n');
   assert.match(printed, /Couldn't open a tunnel: cloudflared stopped \(exit code 1\): 429 Too Many Requests/);
-  assert.match(printed, /npm run tunnel again in a minute/);
+  assert.match(printed, /npm run dev again in a minute/);
 });
 
 test('plain output keeps the lines scripts and logs look for', () => {

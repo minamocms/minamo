@@ -121,7 +121,30 @@ export function createUi(stream: UiStream, options: UiOptions = {}): Ui {
   const plainRequested = env.MINAMO_PLAIN !== undefined && env.MINAMO_PLAIN !== '' && env.MINAMO_PLAIN !== '0';
   const fancy = (options.interactive ?? stream.isTTY === true) && !plainRequested && env.TERM !== 'dumb';
   const colour = wantsColour(env, fancy);
-  let activeSpinner: { clear: () => void; redraw: () => void } | null = null;
+  // Spinners running now, newest last. Only the newest is drawn (on the
+  // last line); when it ends, the one before it shows again. One timer
+  // animates whichever is on show.
+  const running: Array<{ message: () => string }> = [];
+  let spinnerDrawn = false;
+  let spinnerFrame = 0;
+  let ticker: ReturnType<typeof setInterval> | undefined;
+
+  function clearSpinner(): void {
+    if (spinnerDrawn) {
+      stream.write('\r\u001b[2K');
+      spinnerDrawn = false;
+    }
+  }
+
+  function drawSpinner(): void {
+    const top = running.at(-1);
+    if (!top) {
+      return;
+    }
+    const frame = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length] ?? '';
+    stream.write(`\r\u001b[2K ${style(frame, 'cyan')} ${top.message()}...`);
+    spinnerDrawn = true;
+  }
 
   function style(text: string, ...styles: Style[]): string {
     if (!colour || styles.length === 0) {
@@ -137,9 +160,9 @@ export function createUi(stream: UiStream, options: UiOptions = {}): Ui {
   // Everything goes through here, so a running spinner is cleared first
   // and drawn again after, rather than written over.
   function write(text: string): void {
-    activeSpinner?.clear();
+    clearSpinner();
     stream.write(text);
-    activeSpinner?.redraw();
+    drawSpinner();
   }
 
   function line(text = ''): void {
@@ -250,43 +273,44 @@ export function createUi(stream: UiStream, options: UiOptions = {}): Ui {
     },
     spinner(text) {
       let message = text;
-      let frame = 0;
-      let drawn = false;
-      let timer: ReturnType<typeof setInterval> | undefined;
+      const entry = { message: () => message };
+      let ended = false;
 
       if (!fancy) {
         line(`${message}...`);
       } else {
-        const draw = (): void => {
-          stream.write(`\r\u001b[2K ${style(SPINNER_FRAMES[frame % SPINNER_FRAMES.length] ?? '', 'cyan')} ${message}...`);
-          drawn = true;
-        };
-        const clear = (): void => {
-          if (drawn) {
-            stream.write('\r\u001b[2K');
-            drawn = false;
-          }
-        };
-        activeSpinner = { clear, redraw: draw };
-        stream.write('\u001b[?25l');
-        draw();
-        timer = setInterval(() => {
-          frame++;
-          draw();
-        }, SPINNER_INTERVAL_MS);
-        // Never what keeps the process alive.
-        timer.unref?.();
+        if (running.length === 0) {
+          stream.write('\u001b[?25l');
+          ticker = setInterval(() => {
+            spinnerFrame++;
+            drawSpinner();
+          }, SPINNER_INTERVAL_MS);
+          // Never what keeps the process alive.
+          ticker.unref?.();
+        }
+        running.push(entry);
+        drawSpinner();
       }
 
       function end(): void {
-        if (timer) {
-          clearInterval(timer);
-          timer = undefined;
+        if (ended) {
+          return;
         }
-        if (fancy && activeSpinner) {
-          activeSpinner.clear();
-          activeSpinner = null;
+        ended = true;
+        if (!fancy) {
+          return;
+        }
+        const index = running.indexOf(entry);
+        if (index !== -1) {
+          running.splice(index, 1);
+        }
+        clearSpinner();
+        if (running.length === 0) {
+          clearInterval(ticker);
+          ticker = undefined;
           stream.write('\u001b[?25h');
+        } else {
+          drawSpinner();
         }
       }
 
@@ -295,6 +319,8 @@ export function createUi(stream: UiStream, options: UiOptions = {}): Ui {
           message = next;
           if (!fancy) {
             line(`${message}...`);
+          } else if (running.at(-1) === entry) {
+            drawSpinner();
           }
         },
         succeed(done, detail) {

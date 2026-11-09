@@ -86,6 +86,7 @@ export default tseslint.config(
       'src/upgrade/owned-files.ts',
       'src/upgrade/upgrade-cli.ts',
       'src/upgrade/security-fixes.ts',
+      'src/dev/dev-site.ts',
       'src/services/git-revert.ts',
       'src/services/fs-walk.ts',
       'src/services/content-read.ts',

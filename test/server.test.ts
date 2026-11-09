@@ -10,7 +10,6 @@ import { CHECKPOINT_MESSAGE, getCommitLog } from '../src/services/git-history.ts
 import { DRIVER_NAME } from '../src/search/drivers/node-sqlite-driver.ts';
 import { createTmpSiteRoot, writeJson } from './helpers/tmp-site.ts';
 import { captureOutput } from './helpers/capture-output.ts';
-import type { DevTunnelEvent } from '../src/services/dev-tunnel.ts';
 
 const AGENT_PACKAGE_JSON = JSON.parse(
   readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf-8'),
@@ -368,18 +367,14 @@ test('boot prints the real bound address, not just the configured port verbatim'
   }
 });
 
-test('a normal boot (no --tunnel) prints a one-line hint about the option, never blocks on input', async () => {
+test('a normal boot (as on live hosting) prints no advice about working on the site, never blocks on input', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   const captured = captureOutput();
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { output: captured.output, logger: false });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, env: {} });
     try {
-      const printed = captured.all();
-      assert.ok(
-        printed.some((line) => line.includes('--tunnel')),
-        'expected a hint mentioning --tunnel to be printed on a normal boot',
-      );
+      assert.ok(!captured.all().some((line) => line.includes('npm run dev')), 'the npm run dev hint is for a terminal, not logs');
     } finally {
       await app.close();
     }
@@ -388,54 +383,27 @@ test('a normal boot (no --tunnel) prints a one-line hint about the option, never
   }
 });
 
-test('tunnel: true starts the injected tunnel, prints its URL and a security warning, and closes it on shutdown', async () => {
+test('under npm run dev, the key it passes in works as an access token, and the site prints nothing of its own', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   const captured = captureOutput();
-  let closed = false;
-  const startTunnel = async (port: number) => {
-    assert.equal(typeof port, 'number');
-    return { url: 'https://example-tunnel.test', close: () => { closed = true; } };
-  };
+  const key = 'the-local-edit-key-from-npm-run-dev';
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
-    const printed = captured.all();
-    assert.ok(printed.some((line) => line.includes('https://example-tunnel.test')));
-    assert.ok(printed.some((line) => line.toLowerCase().includes('publicly')));
-    await app.close();
-    assert.equal(closed, true, 'the tunnel must be closed on graceful shutdown');
-  } finally {
-    cleanup();
-  }
-});
-
-test('tunnel: true prints an Edit in Minamo link whose key works on this site until it stops', async () => {
-  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const captured = captureOutput();
-  const startTunnel = async () => ({ url: 'https://example-tunnel.test', close: () => {} });
-  try {
-    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
+    const app = await startServer(siteRoot, {
+      output: captured.output,
+      logger: false,
+      env: { MINAMO_DEV_CHILD: '1', MINAMO_LOCAL_EDIT_KEY: key },
+    });
     try {
-      const printed = captured.all();
-      const line = printed.find((entry) => entry.startsWith('Edit in Minamo: '));
-      assert.ok(line, 'expected an Edit in Minamo link');
-      const link = new URL(line.slice('Edit in Minamo: '.length));
-      assert.equal(link.origin + link.pathname, 'https://cms.minamo.app/local');
-      const fragment = new URLSearchParams(link.hash.slice(1));
-      assert.equal(fragment.get('site'), 'https://example-tunnel.test');
-      const key = fragment.get('key');
-      assert.ok(key);
       const address = app.server.address();
       if (address === null || typeof address === 'string') {
         throw new Error('expected a real bound network address');
       }
       const withKey = await fetch(`http://127.0.0.1:${address.port}/v1/content`, { headers: { authorization: `Bearer ${key}` } });
       assert.equal(withKey.status, 200, 'the key must be accepted as an access token');
-      const withoutKey = await fetch(`http://127.0.0.1:${address.port}/v1/content`, { headers: { authorization: 'Bearer not-the-key' } });
-      assert.equal(withoutKey.status, 401);
       const config = JSON.parse(readFileSync(join(siteRoot, 'vhost/site.config.json'), 'utf8')) as Record<string, unknown>;
       assert.equal(config.tokens, undefined, 'the key must never be written to site.config.json');
+      assert.deepEqual(captured.stdout, [], 'npm run dev prints the header and where it runs, not the site');
     } finally {
       await app.close();
     }
@@ -444,45 +412,20 @@ test('tunnel: true prints an Edit in Minamo link whose key works on this site un
   }
 });
 
-test('tunnel: true prints a new Edit in Minamo link, with the same key, when the tunnel reopens at a new address', async () => {
+test('the key is ignored unless the site is running under npm run dev', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   const captured = captureOutput();
-  let report: ((event: DevTunnelEvent) => void) | undefined;
-  const startTunnel = async (_port: number, deps?: { report?: (event: DevTunnelEvent) => void }) => {
-    report = deps?.report;
-    return { url: 'https://first.test', close: () => {} };
-  };
+  const key = 'a-key-set-some-other-way';
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, env: { MINAMO_LOCAL_EDIT_KEY: key } });
     try {
-      assert.ok(report, 'the server must ask to hear about a new address');
-      report({ kind: 'reopened', url: 'https://second.test', changed: true });
-      const links = captured
-        .all()
-        .filter((entry) => entry.startsWith('Edit in Minamo: '))
-        .map((entry) => new URLSearchParams(new URL(entry.slice('Edit in Minamo: '.length)).hash.slice(1)));
-      assert.deepEqual(links.map((fragment) => fragment.get('site')), ['https://first.test', 'https://second.test']);
-      assert.equal(links[0]?.get('key'), links[1]?.get('key'));
-    } finally {
-      await app.close();
-    }
-  } finally {
-    cleanup();
-  }
-});
-
-test('no Edit in Minamo link (and no extra key) with "adminBaseUrl": false', async () => {
-  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const captured = captureOutput();
-  const startTunnel = async () => ({ url: 'https://example-tunnel.test', close: () => {} });
-  try {
-    writeJson(siteRoot, 'vhost/site.config.json', { port: 0, adminBaseUrl: false });
-    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
-    try {
-      const printed = captured.all();
-      assert.ok(!printed.some((entry) => entry.includes('Edit in Minamo')));
-      assert.ok(printed.some((entry) => entry.includes('https://example-tunnel.test')));
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+      const withKey = await fetch(`http://127.0.0.1:${address.port}/v1/content`, { headers: { authorization: `Bearer ${key}` } });
+      assert.equal(withKey.status, 401);
     } finally {
       await app.close();
     }
@@ -518,29 +461,5 @@ test('EADDRINUSE prints a clear, actionable message (PORT env var / site.config.
     await occupant?.close();
     cleanupOccupant();
     cleanupContender();
-  }
-});
-
-test('tunnel: true with a tunnel that fails to start does not prevent the server itself from booting and serving', async () => {
-  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const captured = captureOutput();
-  const startTunnel = async () => {
-    throw new Error('simulated tunnel failure');
-  };
-  try {
-    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
-    try {
-      const address = app.server.address();
-      if (address === null || typeof address === 'string') {
-        throw new Error('expected a real bound network address');
-      }
-      const response = await fetch(`http://127.0.0.1:${address.port}/v1/capabilities`);
-      assert.equal(response.status, 200, 'the site must still be reachable locally despite the tunnel failure');
-    } finally {
-      await app.close();
-    }
-  } finally {
-    cleanup();
   }
 });

@@ -91,11 +91,23 @@ The Docker image above works as-is on any platform that (a) builds from a `Docke
 
 What this explicitly does **not** cover: "any shared hosting." A host that can't run a persistent process, exec `git`, or mount a real disk (typical of classic shared PHP-style hosting) cannot run this today.
 
-## Dev-mode theme watching
+## Working on a site: npm run dev
 
-`npm run dev` (`node --watch-path=../theme server.js`) restarts the server automatically whenever a file under `theme/` changes - edit a section's markup or a layout, save, refresh the browser, no manual restart. This is Node's own `--watch-path` flag, not custom code: the server already handles `SIGTERM` gracefully (draft checkpoint flush, tunnel cleanup), which is exactly the signal Node's watch mode sends on a restart.
+`npm run dev` (`dev-site`) is the one command for working on a site. From `vhost/`:
 
-`npm run stop` (`stop-site`) stops a running site from any terminal, not only the one it was started in. On start the server records which process to stop in `vhost/data/server.pid` (disposable, never committed): the server itself, or under `npm run dev` the watcher running it, so stopping ends both rather than leaving the watcher waiting to restart it. `stop-site` sends that process `SIGTERM` - the same graceful shutdown as Ctrl+C - and waits for it to exit. It only ever signals a process that is still alive and answering as a site on the recorded port, so a leftover file from a crash is cleaned up rather than getting an unrelated process killed. Starting a site that is already running now says so, and points at `npm run stop`, instead of reporting a bare port conflict. On Windows the signal ends the process immediately rather than gracefully, so the final draft checkpoint is skipped.
+```
+npm run dev
+```
+
+It asks whether to edit the site in Minamo while it runs (Enter for yes). Yes opens a public tunnel to it and prints an Edit in Minamo link (see [Local dev tunnel](#local-dev-tunnel)); No runs it locally only. `npm run dev -- --tunnel` or `npm run dev -- --local` answers in advance, for scripts; with no terminal to ask, it runs locally.
+
+It restarts the site whenever a file under `theme/` changes: edit a section's markup or a layout, save, refresh the browser. Only `theme/` is watched: `content/` and `drafts/` are read fresh on every request, so a content edit shows up on the next request with no restart, and watching them would only restart the site on every draft autosave. The tunnel, its address and the Edit in Minamo link belong to `npm run dev` itself, not the site, so they stay the same through every restart and an editor already open carries on.
+
+While it runs at a terminal: `e` opens the Edit in Minamo link, `o` opens the site, `r` restarts it, and `q` (or `Ctrl+C`) stops everything. If the site fails to start after a change (a broken file, say), the problem is shown and it starts again on the next theme change, or `r`.
+
+`npm start` is unchanged: it just runs the site, which is what live hosting runs. It never opens a tunnel, which would give a live site a second public address and put the Edit in Minamo key in the host's logs.
+
+`npm run stop` (`stop-site`) stops a running site from any terminal, not only the one it was started in. On start the server records which process to stop in `vhost/data/server.pid` (disposable, never committed): the server itself, or under `npm run dev` the `npm run dev` process running it, so stopping ends the site, the tunnel and the watching together. `stop-site` sends that process `SIGTERM` - the same graceful shutdown as Ctrl+C - and waits for it to exit. It only ever signals a process that is still alive and answering as a site on the recorded port, so a leftover file from a crash is cleaned up rather than getting an unrelated process killed. Starting a site that is already running now says so, and points at `npm run stop`, instead of reporting a bare port conflict. On Windows the signal ends the process immediately rather than gracefully, so the final draft checkpoint is skipped.
 
 `npm run pull` (`pull-site`) copies a running site's content and media into a local one, so it can be run locally with everything working, images included (`media/` is never in git, so cloning the repository alone leaves every image broken). From the local site's `vhost/`:
 
@@ -118,10 +130,6 @@ It lists every page, redirect and image it will change, warns that this overwrit
 
 Push also asks what to push, **Content** and/or **Theme**, showing how many changes each has. The theme is protected the same way as pages: a theme file changed on the live site since the pull stops the push, and a file is only deleted if it was deleted locally. It goes to the site as one request (`POST /v1/theme/push`): the site checks every file is still what was pulled, refuses any Liquid template that can't be parsed, writes and commits it all at once, and switches to the new theme immediately, with no restart. The theme is pushed before content, so pages using a new section type arrive after the theme that defines it. A live site on a CMS older than 0.6.0 can't sync its theme; push then offers content only.
 
-Deliberately scoped to `theme/` only - `content/`/`drafts/` are already read fresh on every request (pages, menus, and the render cache are all re-checked per request or keyed on file mtime), so a content edit already shows up on the next request with no restart needed. Watching `content/` too would only cause a pointless restart on every draft autosave.
-
-Combine with `--tunnel` if needed: `node --watch-path=../theme server.js --tunnel`.
-
 ## Site health checks
 
 `npm run check` (`check-site`, one of this package's own installed bin commands) renders every published page for real and reports three classes of problem in one pass: any theme component excluded at boot (the same warnings a normal boot already prints to the console); any `<img src>`/`srcset`/`<a href>` in the rendered output pointing at a `/media/`, `/assets/`, or root-static file that doesn't exist on disk; and any internal link that doesn't resolve to a real, published page. Exits non-zero on any finding, so it's usable in CI, not just interactively.
@@ -130,7 +138,7 @@ This is a full render crawl, not a static content scan - it exists specifically 
 
 ## Local dev tunnel
 
-`npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL, printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
+Answering yes to `npm run dev`'s question exposes the locally-running site through a public HTTPS URL, printed once it's open. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
 
 It needs Cloudflare's free `cloudflared` program, installed once. No Cloudflare account is needed.
 
@@ -146,16 +154,17 @@ Alongside it, the terminal prints an **Edit in Minamo** link. Opening it (signed
 
 If the tunnel drops while the site is running, it's reported in the terminal and reopened automatically. A reopened tunnel has a new address, and the terminal prints a new Edit in Minamo link for it (with the same key, so an editor already open carries on once the new link is opened).
 
-Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence.
+The tunnel closes when `npm run dev` stops (`q`, `Ctrl+C` or `npm run stop`). Until 0.15.0 the tunnel had its own script, `npm run tunnel`; `npm run upgrade` removes it from a site's `package.json` as long as it hasn't been changed.
 
 **This exposes the site publicly for as long as the process runs.** Anyone with the URL and a valid access token can reach it. Don't leave it running unattended, and don't use it as a substitute for real hosting.
 
 ## In the terminal
 
-While a site runs at a terminal (`npm start`, `npm run dev`, `npm run tunnel`), single keys work as shortcuts, listed under the startup messages:
+While a site runs at a terminal, single keys work as shortcuts, listed under the startup messages:
 
-- `e` opens the Edit in Minamo link in your browser (with `--tunnel`)
+- `e` opens the Edit in Minamo link in your browser (`npm run dev`, with the tunnel)
 - `o` opens the site itself
-- `q` stops the site, the same as `Ctrl+C`
+- `r` restarts it (`npm run dev`)
+- `q` stops it, the same as `Ctrl+C`
 
 This package's commands use colour, symbols (✔ done, ! worth knowing, ✖ went wrong) and progress spinners at a terminal. Anywhere else (output piped to a file, a host's logs, CI) they print the same words as plain lines, with no colour, symbols, boxes, spinners or shortcuts. To get plain output at a terminal too, set `MINAMO_PLAIN=1`. Colour also follows the usual `NO_COLOR` and `FORCE_COLOR` settings.

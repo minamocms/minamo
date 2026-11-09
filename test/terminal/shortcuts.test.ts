@@ -41,6 +41,25 @@ test('runs the shortcut for each key pressed, upper or lower case', () => {
   assert.deepEqual(pressed, ['e', 'o'], 'nothing runs once stopped');
 });
 
+test('reassert turns single-key mode back on after something else turned it off', () => {
+  const stdin = new FakeStdin();
+  const modes: boolean[] = [];
+  const setRawMode = stdin.setRawMode.bind(stdin);
+  stdin.setRawMode = (mode: boolean) => {
+    modes.push(mode);
+    setRawMode(mode);
+  };
+  const listener = listenForShortcuts(stdin, []);
+  stdin.raw = false;
+  listener?.reassert();
+  assert.equal(stdin.raw, true);
+  assert.deepEqual(modes, [true, false, true]);
+  listener?.stop();
+  stdin.raw = true;
+  listener?.reassert();
+  assert.equal(stdin.raw, false, 'once stopped, the terminal is put back to normal');
+});
+
 test('Ctrl+C restores the terminal and interrupts, as it would without shortcuts', () => {
   const stdin = new FakeStdin();
   let interrupted = 0;

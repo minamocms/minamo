@@ -53,6 +53,27 @@ test('under node --watch, the process to stop is the watcher (the parent), not t
   }
 });
 
+test('under npm run dev, the process to stop is npm run dev itself (the parent), so the tunnel and watching end too', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  const before = process.env.MINAMO_DEV_CHILD;
+  try {
+    const config = loadSiteConfig(siteRoot);
+    process.env.MINAMO_DEV_CHILD = '1';
+    withWatchEnv(undefined, () => writePidFile(config, 3600));
+
+    const record = readPidFile(config);
+    assert.equal(record?.pid, process.ppid);
+    assert.equal(record?.serverPid, process.pid);
+  } finally {
+    if (before === undefined) {
+      delete process.env.MINAMO_DEV_CHILD;
+    } else {
+      process.env.MINAMO_DEV_CHILD = before;
+    }
+    cleanup();
+  }
+});
+
 test('removeOwnPidFile leaves a record written by a different process alone (a watch restart\'s new server)', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {

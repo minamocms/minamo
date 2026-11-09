@@ -41,7 +41,7 @@ export function generateToken(): { raw: string; hash: string } {
 export const SERVER_JS = `import { startServer } from '${PACKAGE_NAME}';
 import { join } from 'node:path';
 
-await startServer(join(import.meta.dirname, '..'), { tunnel: process.argv.includes('--tunnel') });
+await startServer(join(import.meta.dirname, '..'));
 `;
 
 // The scripts every site's vhost/package.json gets. The CMS owns these:
@@ -50,24 +50,17 @@ await startServer(join(import.meta.dirname, '..'), { tunnel: process.argv.includ
 // auto-detect and run `npm start` by default for a Node app
 // with no other deploy config - without this, a site pushed
 // straight to one of those (no Dockerfile in the loop) simply
-// wouldn't boot. "tunnel" mirrors the --tunnel flag create-site
-// already tells the operator about in its own next-steps output.
-// "dev" is Node's own --watch-path, not custom fs-watching code
-// - confirmed empirically that it both picks up changes to a
-// plain file under a watched directory that's never imported
-// (theme/*.liquid is only ever read via readFileSync) and sends
-// a real SIGTERM on restart, which server.js's own shutdown
-// handling already listens for. "../theme" because npm run dev
-// runs with cwd vhost/, a sibling of theme/. Deliberately not
-// content/ - that's already read fresh on every request, so
-// watching it would only cause pointless restarts on every
-// content edit. "check" is check-site, the package's own
-// installed CLI bin - runs from vhost/ (site-check/cli.ts's own
-// assumed cwd relationship), same pattern as start/tunnel/dev.
+// wouldn't boot. So "start" stays a plain start: no tunnel, no
+// restarts. "dev" is dev-site (dev/dev-site.ts), the package's own
+// bin: it restarts the site when theme/ changes (content is read
+// fresh on every request, so it needs none) and offers the tunnel.
+// "check" is check-site, likewise a bin run from vhost/ (site-check/
+// cli.ts's own assumed cwd relationship).
 export const SCAFFOLD_SCRIPTS: Record<string, string> = {
   start: 'node server.js',
-  tunnel: 'node server.js --tunnel',
-  dev: 'node --watch-path=../theme server.js',
+  // npm run dev: the one command for working on a site (dev/dev-site.ts):
+  // restarts on theme changes, and offers a tunnel to edit it in Minamo.
+  dev: 'dev-site',
   check: 'check-site',
   // seed-media is the package's own installed CLI bin, exposed
   // as a script for exactly the same reason check is: there is
@@ -93,6 +86,14 @@ export const SCAFFOLD_SCRIPTS: Record<string, string> = {
   // Upgrades the CMS itself (upgrade-site): shows what's new, installs
   // it, and updates the files in vhost/ that belong to the CMS.
   upgrade: 'upgrade-site',
+};
+
+// Scripts earlier versions gave every site and this one doesn't. npm run
+// upgrade removes each, but only while it's still exactly as the CMS
+// left it: a developer's own edit to one is theirs to keep.
+export const RETIRED_SCRIPTS: Record<string, string> = {
+  // Until 0.15.0: npm run dev now asks whether to open the tunnel.
+  tunnel: 'node server.js --tunnel',
 };
 
 export class ScaffoldError extends Error {}

@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SCAFFOLD_SCRIPTS, SERVER_JS, TEMPLATE_ROOT, scaffoldSite } from '../../src/create-site/generate-site.ts';
+import { RETIRED_SCRIPTS, SCAFFOLD_SCRIPTS, SERVER_JS, TEMPLATE_ROOT, scaffoldSite } from '../../src/create-site/generate-site.ts';
 import { changesBetween, compareVersions, mayBreak } from '../../src/upgrade/changelog.ts';
 import { finishUpgrade } from '../../src/upgrade/finish.ts';
 import { refreshOwnedFiles } from '../../src/upgrade/owned-files.ts';
@@ -46,7 +46,7 @@ function scaffolded() {
   return { siteRoot, cleanup: () => rmSync(join(siteRoot, '..'), { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
-const SOURCE = { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS, version: readAgentVersion() };
+const SOURCE = { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS, retiredScripts: RETIRED_SCRIPTS, version: readAgentVersion() };
 
 test('refreshOwnedFiles puts back the CMS\'s own files, keeps the developer\'s own scripts, and touches nothing else', () => {
   const { siteRoot, cleanup } = scaffolded();
@@ -87,6 +87,27 @@ test('refreshOwnedFiles puts back the CMS\'s own files, keeps the developer\'s o
     assert.ok(refreshOwnedFiles(siteRoot, SOURCE).every((result) => result.status === 'unchanged'));
   } finally {
     cleanup();
+  }
+});
+
+test('refreshOwnedFiles removes a retired script (the old tunnel) left as the CMS made it, but keeps one the developer changed', () => {
+  for (const [tunnel, kept] of [['node server.js --tunnel', false], ['node server.js --tunnel --my-flag', true]] as const) {
+    const { siteRoot, cleanup } = scaffolded();
+    try {
+      const pkgPath = join(siteRoot, 'vhost/package.json');
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { scripts: Record<string, string> };
+      pkg.scripts.tunnel = tunnel;
+      pkg.scripts.dev = 'node --watch-path=../theme server.js';
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+
+      refreshOwnedFiles(siteRoot, SOURCE);
+
+      const after = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { scripts: Record<string, string> };
+      assert.equal(after.scripts.tunnel, kept ? tunnel : undefined);
+      assert.equal(after.scripts.dev, 'dev-site', 'npm run dev is the new one');
+    } finally {
+      cleanup();
+    }
   }
 });
 

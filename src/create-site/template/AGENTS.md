@@ -446,13 +446,12 @@ The index behind this endpoint keeps itself current automatically - it rebuilds 
 From `vhost/`:
 
 ```
-npm start          # boots the site on the port set in vhost/site.config.json
-npm run tunnel      # same, plus a public tunnel URL for sharing a preview
-npm run dev         # same, plus auto-restart whenever a theme/ file changes - use this one while iterating
-npm run stop        # stops a site started by any of the above, from any terminal
+npm run dev        # use this while working: restarts on theme/ changes, and offers to open it in Minamo
+npm start          # just runs the site, on the port set in vhost/site.config.json (what live hosting runs)
+npm run stop       # stops a site started by either, from any terminal
 ```
 
-`npm run tunnel` needs Cloudflare's `cloudflared` program (on a Mac, `brew install cloudflared`; no account needed) and says so if it's missing. It also prints an "Edit in Minamo" link that opens the running site in the admin without adding it there; the link holds a key that works until the site stops, so treat it like a password. While a site runs at a terminal, `e` opens that link, `o` opens the site and `q` stops it.
+`npm run dev` asks whether to edit the site in Minamo while it runs (`npm run dev -- --tunnel` or `-- --local` answers in advance; with no terminal it runs locally, so pass one of them when running it on a user's behalf). Yes needs Cloudflare's `cloudflared` program (on a Mac, `brew install cloudflared`; no account needed) and says so if it's missing; it prints an "Edit in Minamo" link that opens the running site in the admin without adding it there. The link holds a key that works until the site stops, so treat it like a password. While it runs at a terminal, `e` opens that link, `o` opens the site, `r` restarts it and `q` stops it.
 
 A site is deployed once; after that, `npm run pull` and `npm run push` move changes between this copy and the live site. `npm run pull` makes this copy match the live site for whatever is chosen - content (pages, menus, redirects, site settings, images), theme, or both - asking for the address and access token (or `npm run pull -- <its URL>` with `CMS_TOKEN` set). It refuses while the parts it would overwrite have uncommitted changes, and commits nothing. `npm run push` sends back only what changed here since the last pull: anything an editor changed on the live site since then stops the push and is listed instead of overwritten, it shows everything it will change, and it asks for the site's address to be typed first. After `npm run upgrade` it can also upgrade the live site's CMS. Never run push on a user's behalf without them confirming.
 

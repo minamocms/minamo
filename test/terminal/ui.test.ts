@@ -96,3 +96,18 @@ test('a spinner in fancy mode is replaced by its result, and other output is not
   assert.deepEqual(shown, [' ! Something happened meanwhile', ' ✔ Worked', '']);
   assert.ok(output.text().includes('\u001b[?25h'), 'the cursor is shown again');
 });
+
+test('two spinners at once: the newer shows, and the older shows again when it ends', () => {
+  const output = sink(true);
+  const ui = createUi(output.stream, { env: {} });
+  const opening = ui.spinner('Opening a tunnel');
+  const restarting = ui.spinner('Restarting the site');
+  restarting.succeed('Restarted the site');
+  opening.succeed('Tunnel open');
+  const shown = stripVTControlCharacters(output.text().split('\r\u001b[2K').join('\u0000'))
+    .split('\n')
+    .map((line) => line.split('\u0000').at(-1));
+  assert.deepEqual(shown, [' ✔ Restarted the site', ' ✔ Tunnel open', '']);
+  assert.ok(output.text().includes('Opening a tunnel...'), 'the older spinner was drawn again in between');
+  assert.ok(output.text().includes('\u001b[?25h'), 'the cursor is shown again once both are done');
+});

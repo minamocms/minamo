@@ -11,11 +11,10 @@ import { publicRoutes } from './routes/public.ts';
 import { searchPublicRoutes } from './routes/search-public.ts';
 import { sitemapRoutes } from './routes/sitemap.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
-import type { DevTunnel } from './services/dev-tunnel.ts';
-import { startDevTunnel, type DevTunnelDeps } from './services/dev-tunnel.ts';
 import { createSiteConsole, type SiteConsoleStreams } from './terminal/site-console.ts';
 import { readAgentVersion } from './routes/capabilities.ts';
-import { createLocalEditKey, localEditLink } from './services/local-edit-link.ts';
+import { DEV_CHILD_ENV, LOCAL_EDIT_KEY_ENV, localEditToken } from './services/local-edit-link.ts';
+import { openInBrowser } from './terminal/shortcuts.ts';
 import { startIntervalJob } from './services/interval-job.ts';
 import { reindexOnBootIfMissing } from './services/reindex-on-write.ts';
 import { isProcessAlive, readPidFile, removeOwnPidFile, writePidFile } from './services/pid-file.ts';
@@ -25,10 +24,9 @@ export interface BuildServerOptions {
 }
 
 export interface StartServerOptions extends BuildServerOptions {
-  tunnel?: boolean;
-  // Injectable so tests can exercise the failure path without a real
-  // network call - defaults to the real startDevTunnel.
-  startTunnel?: (port: number, deps?: Pick<DevTunnelDeps, 'report'>) => Promise<DevTunnel>;
+  // Where the environment comes from: tests set what npm run dev
+  // (dev/dev-site.ts) would. Defaults to process.env.
+  env?: NodeJS.ProcessEnv;
   // Where the terminal output goes (terminal/site-console.ts): tests
   // capture it here. Defaults to the process's own.
   output?: SiteConsoleStreams;
@@ -158,15 +156,19 @@ export async function startServer(
 ): Promise<FastifyInstance> {
   const booted = bootSite(siteRoot);
   const serverConfig = loadServerConfig(siteRoot);
-  // With a tunnel (and an admin to link to), a key for the "Edit in
-  // Minamo" link (services/local-edit-link.ts), accepted only while this
-  // process runs.
-  const localEdit = options.tunnel && serverConfig.adminBaseUrl ? createLocalEditKey() : undefined;
-  if (localEdit) {
-    serverConfig.tokens = [...serverConfig.tokens, localEdit.token];
+  // Started by npm run dev (dev/dev-site.ts), which runs the tunnel,
+  // restarts this process when the theme changes, and prints what
+  // matters itself: so here, quiet, and the key for its Edit in Minamo
+  // link accepted as an access token. The key lives only in this
+  // process's environment and memory, never in site.config.json.
+  const env = options.env ?? process.env;
+  const devChild = env[DEV_CHILD_ENV] === '1';
+  const localEditKey = devChild ? env[LOCAL_EDIT_KEY_ENV] : undefined;
+  if (localEditKey) {
+    serverConfig.tokens = [...serverConfig.tokens, localEditToken(localEditKey)];
   }
   const app = buildServer(booted, serverConfig, options);
-  const terminal = createSiteConsole(options.output);
+  const terminal = createSiteConsole(options.output, { quiet: devChild });
   terminal.starting(siteRoot, readAgentVersion());
 
   // Previously these three failure cases (missing/invalid {% schema %}
@@ -184,7 +186,6 @@ export async function startServer(
     app.log.error(error, 'background draft checkpoint failed');
   });
 
-  let tunnel: DevTunnel | undefined;
 
   // Node's default action for an unhandled SIGTERM/SIGINT is immediate
   // process termination, bypassing all JS-level cleanup - without
@@ -202,7 +203,6 @@ export async function startServer(
 
   app.addHook('onClose', async () => {
     terminal.stopping();
-    tunnel?.close();
     scheduler.stop();
     process.removeListener('SIGTERM', shutdown);
     process.removeListener('SIGINT', shutdown);
@@ -262,48 +262,16 @@ export async function startServer(
   // itself fails to come up.
   reindexOnBootIfMissing(booted.config);
 
-  let editLink: string | undefined;
-  if (options.tunnel) {
-    // The real bound port, for the same reason as the message above.
-    const tunnelPort = address !== null && typeof address !== 'string' ? address.port : serverConfig.port;
-    const adminBaseUrl = serverConfig.adminBaseUrl;
-    const linkFor = (url: string): string | undefined =>
-      localEdit && adminBaseUrl ? localEditLink(adminBaseUrl, url, localEdit.key) : undefined;
-    let opened = false;
-    const opening = terminal.openingTunnel();
-    try {
-      tunnel = await (options.startTunnel ?? startDevTunnel)(tunnelPort, {
-        report: (event) => {
-          if (!opened) {
-            opening.event(event);
-            return;
-          }
-          terminal.tunnelEvent(event);
-          // A new address means a new link (with the same key).
-          if (event.kind === 'reopened' && event.changed) {
-            editLink = linkFor(event.url);
-            if (editLink) {
-              terminal.editLink(editLink, true);
-            }
-          }
-        },
-      });
-      opened = true;
-      opening.opened(tunnel.url);
-      editLink = linkFor(tunnel.url);
-      if (editLink) {
-        terminal.editLink(editLink);
-      }
-    } catch (error) {
-      // The site itself is already up and correctly serving locally -
-      // a failed tunnel is not a reason to fail the whole boot.
-      opening.failed(error);
-    }
+  if (devChild) {
+    // Tells npm run dev the site is up, and where.
+    process.send?.({ type: 'minamo-site-ready', port: address !== null && typeof address !== 'string' ? address.port : serverConfig.port });
   } else {
-    terminal.tunnelHint();
+    terminal.devHint();
+    terminal.listen([
+      { key: 'o', label: 'open site', run: () => openInBrowser(localUrl) },
+      { key: 'q', label: 'stop' },
+    ]);
   }
-
-  terminal.listen({ localUrl, editLink: () => editLink });
 
   return app;
 }

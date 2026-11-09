@@ -13,6 +13,8 @@ export interface OwnedFilesSource {
   templateRoot: string;
   serverJs: string;
   scripts: Record<string, string>;
+  // Scripts the CMS no longer gives sites: removed while unchanged.
+  retiredScripts?: Record<string, string>;
   // The version now installed, for vhost/package.json's dependency.
   version: string;
 }
@@ -52,7 +54,10 @@ export function refreshOwnedFiles(siteRoot: string, source: OwnedFilesSource): O
   const packagePath = join(siteRoot, 'vhost', 'package.json');
   const raw = readFileSync(packagePath, 'utf-8');
   const pkg = JSON.parse(raw) as { scripts?: Record<string, string>; dependencies?: Record<string, string> };
-  const theirs = Object.fromEntries(Object.entries(pkg.scripts ?? {}).filter(([name]) => !(name in source.scripts)));
+  const retired = source.retiredScripts ?? {};
+  const theirs = Object.fromEntries(
+    Object.entries(pkg.scripts ?? {}).filter(([name, command]) => !(name in source.scripts) && retired[name] !== command),
+  );
   pkg.scripts = { ...source.scripts, ...theirs };
   pkg.dependencies = upgradedDependencies(pkg.dependencies, source.version);
   results.push(place(siteRoot, 'vhost/package.json', `${JSON.stringify(pkg, null, 2)}\n`));

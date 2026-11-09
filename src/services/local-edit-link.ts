@@ -14,12 +14,20 @@ export interface LocalEditKey {
   token: TokenEntry;
 }
 
+// How npm run dev (dev/dev-site.ts) tells the site it starts that it's
+// running under it, and the key to accept: in that process's
+// environment only.
+export const DEV_CHILD_ENV = 'MINAMO_DEV_CHILD';
+export const LOCAL_EDIT_KEY_ENV = 'MINAMO_LOCAL_EDIT_KEY';
+
+// The access token a key stands for: every scope, as the admin needs.
+export function localEditToken(key: string): TokenEntry {
+  return { hash: createHash('sha256').update(key).digest('hex'), scopes: ['content', 'theme', 'media'] };
+}
+
 export function createLocalEditKey(): LocalEditKey {
   const key = randomBytes(32).toString('base64url');
-  return {
-    key,
-    token: { hash: createHash('sha256').update(key).digest('hex'), scopes: ['content', 'theme', 'media'] },
-  };
+  return { key, token: localEditToken(key) };
 }
 
 export function localEditLink(adminBaseUrl: string, siteUrl: string, key: string): string {

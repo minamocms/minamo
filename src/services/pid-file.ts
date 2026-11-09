@@ -1,3 +1,4 @@
+import { DEV_CHILD_ENV } from './local-edit-link.ts';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SiteConfig } from '../config.ts';
@@ -23,10 +24,12 @@ export function pidFilePath(config: SiteConfig): string {
   return join(config.dataRoot, 'server.pid');
 }
 
-// Node sets WATCH_REPORT_DEPENDENCIES in the child it runs under
-// --watch, whose parent is then the watcher itself.
+// Under npm run dev (dev/dev-site.ts, which sets DEV_CHILD_ENV in the
+// site it runs) the parent is what to stop: it ends the site, the tunnel
+// and the theme watching together. Likewise under `node --watch`, which
+// sets WATCH_REPORT_DEPENDENCIES in the child it runs.
 function stopTarget(): number {
-  return process.env.WATCH_REPORT_DEPENDENCIES ? process.ppid : process.pid;
+  return process.env[DEV_CHILD_ENV] === '1' || process.env.WATCH_REPORT_DEPENDENCIES ? process.ppid : process.pid;
 }
 
 export function writePidFile(config: SiteConfig, port: number): void {

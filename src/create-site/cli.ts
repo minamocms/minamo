@@ -26,10 +26,9 @@ try {
   );
   ui.blank();
   ui.heading('Next steps:');
-  ui.list([ui.command(`cd ${targetArg}/vhost`), ui.command('npm install'), ui.command('npm start')], { bullet: ui.fancy ? ui.style('$', 'dim') : ' ' });
+  ui.list([ui.command(`cd ${targetArg}/vhost`), ui.command('npm install'), ui.command('npm run dev')], { bullet: ui.fancy ? ui.style('$', 'dim') : ' ' });
   ui.blank();
-  ui.heading('Want to edit this site in Minamo while developing locally?');
-  ui.list([ui.command('npm run tunnel')], { bullet: ui.fancy ? ui.style('$', 'dim') : ' ' });
+  ui.info('npm run dev restarts the site when the theme changes, and offers to open it in Minamo for editing.');
 } catch (error) {
   if (error instanceof ScaffoldError) {
     err().error(error.message);

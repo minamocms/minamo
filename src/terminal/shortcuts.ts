@@ -33,6 +33,13 @@ export interface Shortcut {
 
 export interface ShortcutListener {
   stop(): void;
+  // Puts the terminal back as it should be: single-key mode while
+  // listening, normal once stopped. Needed after a child process sharing
+  // the terminal ends: Node puts the terminal back the way it found it
+  // when a process exits, which can turn single-key mode off under this
+  // one, or (a child started while it was on) leave it on after this one
+  // has stopped.
+  reassert(): void;
 }
 
 const CTRL_C = '\u0003';
@@ -76,6 +83,12 @@ export function listenForShortcuts(
   };
 
   const listener: ShortcutListener = {
+    reassert() {
+      // Both, the wanted one last: the terminal handle remembers the mode
+      // it last set and would otherwise skip setting it again.
+      input.setRawMode?.(stopped);
+      input.setRawMode?.(!stopped);
+    },
     stop() {
       if (stopped) {
         return;

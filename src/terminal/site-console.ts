@@ -1,17 +1,24 @@
 import { basename } from 'node:path';
 import { createUi, type Ui, type UiStream } from './ui.ts';
-import { listenForShortcuts, openInBrowser, type ShortcutInput, type ShortcutListener } from './shortcuts.ts';
+import { listenForShortcuts, type Shortcut, type ShortcutInput, type ShortcutListener } from './shortcuts.ts';
 import { cloudflaredInstallCommand, CloudflaredNotInstalledError, type DevTunnelEvent } from '../services/dev-tunnel.ts';
 
-// What a running site prints (npm start, npm run tunnel, npm run dev):
-// startup, the tunnel and its Edit in Minamo link, problems, and the
-// keyboard shortcuts. Everything goes through ui.ts, so on live hosting
-// (no terminal) it's the same words as plain log lines.
+// What a running site prints: on its own (npm start, and on live
+// hosting), and under npm run dev (dev/dev-site.ts), which adds the
+// tunnel, its Edit in Minamo link, restarts and keyboard shortcuts.
+// Everything goes through ui.ts, so with no terminal (a host's logs)
+// it's the same words as plain log lines.
 
 export interface SiteConsoleStreams {
   stdout?: UiStream;
   stderr?: UiStream;
   stdin?: ShortcutInput;
+}
+
+export interface SiteConsoleOptions {
+  // A site running under npm run dev: that prints the header, where it's
+  // running and what to press, so the site itself only reports problems.
+  quiet?: boolean;
 }
 
 export interface SiteConsole {
@@ -20,19 +27,26 @@ export interface SiteConsole {
   starting(siteRoot: string, version: string): void;
   running(localUrl: string): void;
   themeWarning(message: string): void;
-  tunnelHint(): void;
+  devHint(): void;
   openingTunnel(): { event(event: DevTunnelEvent): void; opened(url: string): void; failed(error: unknown): void };
   tunnelEvent(event: DevTunnelEvent): void;
   editLink(link: string, again?: boolean): void;
-  listen(shortcuts: { localUrl: string; editLink: () => string | undefined }): void;
+  // Starts listening for the shortcuts and lists them. False when there's
+  // no terminal to listen at.
+  // onStop: what q and Ctrl+C do. By default, Ctrl+C to the whole
+  // process group, as the terminal would (npm start under npm).
+  listen(shortcuts: Shortcut[], onStop?: () => void): boolean;
+  // After a process sharing the terminal ends (see ShortcutListener).
+  keysAgain(): void;
   stopping(): void;
   portInUse(port: number, runningPid?: number): void;
 }
 
-export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole {
+export function createSiteConsole(streams: SiteConsoleStreams = {}, options: SiteConsoleOptions = {}): SiteConsole {
   const out = createUi(streams.stdout ?? process.stdout);
   const err = createUi(streams.stderr ?? process.stderr);
   const stdin = streams.stdin ?? process.stdin;
+  const quiet = options.quiet === true;
   let listener: ShortcutListener | null = null;
 
   function tunnelEvent(event: DevTunnelEvent): void {
@@ -47,17 +61,13 @@ export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole
         err.warn('The tunnel dropped. Reopening it...');
         break;
       case 'reopened':
-        if (event.changed) {
-          out.success('Tunnel open again, at a new address', event.url);
-        } else {
-          out.success('Tunnel open again', event.url);
-        }
+        out.success(event.changed ? 'Tunnel open again, at a new address' : 'Tunnel open again', event.url);
         break;
       case 'reopen-failed':
         err.warn(`Couldn't reopen the tunnel (attempt ${event.attempt} of ${event.attempts})`, event.reason);
         break;
       case 'gave-up':
-        err.error('Gave up reopening the tunnel.', `The site is still running here. Stop it and run ${err.command('npm run tunnel')} again.`);
+        err.error('Gave up reopening the tunnel.', `The site is still running here. Stop it and run ${err.command('npm run dev')} again.`);
         break;
     }
   }
@@ -66,9 +76,14 @@ export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole
     out,
     err,
     starting(siteRoot, version) {
-      out.header('minamo', `${basename(siteRoot)} · framework ${version}`);
+      if (!quiet) {
+        out.header('minamo', `${basename(siteRoot)} · framework ${version}`);
+      }
     },
     running(localUrl) {
+      if (quiet) {
+        return;
+      }
       if (out.fancy) {
         out.rows([['Site running', out.style(localUrl, 'cyan')]], { symbol: 'success' });
       } else {
@@ -78,15 +93,23 @@ export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole
     themeWarning(message) {
       err.warn(message);
     },
-    tunnelHint() {
-      out.info(`To edit this site in Minamo while it runs here, start it with ${out.command('npm run tunnel')} (--tunnel) instead.`);
+    // At a terminal only: npm start is also what live hosting runs, and
+    // a host's logs are no place for advice about working on the site.
+    devHint() {
+      if (!quiet && out.fancy) {
+        out.info(`Working on this site? ${out.command('npm run dev')} opens it in Minamo and restarts it when the theme changes.`);
+      }
     },
     openingTunnel() {
       const spinner = out.spinner('Opening a Cloudflare tunnel');
+      // Said once the tunnel line is printed, not over the spinner.
+      let slowDns = false;
       return {
         event(event) {
           if (event.kind === 'retrying') {
             spinner.update(`Opening a Cloudflare tunnel (try ${event.attempt} of ${event.attempts})`);
+          } else if (event.kind === 'dns-slow') {
+            slowDns = true;
           } else {
             tunnelEvent(event);
           }
@@ -103,6 +126,9 @@ export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole
               ? `   ${out.style("Publicly reachable while this runs. Don't leave it running unattended.", 'dim')}`
               : "This address is publicly reachable for as long as this runs. Don't leave it running unattended.",
           );
+          if (slowDns) {
+            out.warn('Its address is slow to appear in DNS, so it may take a minute before it loads.');
+          }
         },
         failed(error) {
           spinner.stop();
@@ -117,7 +143,7 @@ export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole
           }
           err.error(
             `Couldn't open a tunnel: ${error instanceof Error ? error.message : String(error)}`,
-            `The site is still running here. Try ${err.command('npm run tunnel')} again in a minute.`,
+            `The site is still running here. Try ${err.command('npm run dev')} again in a minute.`,
           );
         },
       };
@@ -136,35 +162,29 @@ export function createSiteConsole(streams: SiteConsoleStreams = {}): SiteConsole
       out.line(out.fancy ? ` ${out.style(link, 'cyan', 'underline')}` : `Edit in Minamo: ${link}`);
       out.blank();
     },
-    listen({ localUrl, editLink }) {
-      if (!out.fancy) {
-        return;
+    listen(shortcuts, onStop) {
+      if (quiet || !out.fancy) {
+        return false;
       }
-      listener = listenForShortcuts(stdin, [
-        {
-          key: 'e',
-          label: 'open editor',
-          run: () => {
-            const link = editLink();
-            if (link) {
-              openInBrowser(link);
-            }
-          },
-        },
-        { key: 'o', label: 'open site', run: () => openInBrowser(localUrl) },
-        // No action of its own: stops everything, as Ctrl+C does.
-        { key: 'q', label: 'stop' },
-      ]);
-      if (listener) {
-        const keys = [...(editLink() ? [['e', 'open editor']] : []), ['o', 'open site'], ['q', 'stop']];
-        out.line(` ${keys.map(([key, label]) => `${out.style(key ?? '', 'bold')} ${out.style(label ?? '', 'dim')}`).join(out.style('  ·  ', 'dim'))}`);
+      listener = onStop ? listenForShortcuts(stdin, shortcuts, onStop) : listenForShortcuts(stdin, shortcuts);
+      if (!listener) {
+        return false;
       }
+      out.line(
+        ` ${shortcuts
+          .map((shortcut) => `${out.style(shortcut.key, 'bold')} ${out.style(shortcut.label, 'dim')}`)
+          .join(out.style('  ·  ', 'dim'))}`,
+      );
+      return true;
+    },
+    keysAgain() {
+      listener?.reassert();
     },
     stopping() {
       listener?.stop();
       listener = null;
       // At a terminal only: in a host's logs the process ending says it.
-      if (out.fancy) {
+      if (!quiet && out.fancy) {
         out.blank();
         out.success('Stopped the site.');
       }

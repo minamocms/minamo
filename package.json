@@ -1,6 +1,6 @@
 {
   "name": "@minamocms/framework",
-  "version": "0.14.1",
+  "version": "0.15.0",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -29,7 +29,8 @@
     "stop-site": "dist/stop-site/cli.js",
     "pull-site": "dist/site-sync/pull-cli.js",
     "push-site": "dist/site-sync/push-cli.js",
-    "upgrade-site": "dist/upgrade/upgrade-cli.js"
+    "upgrade-site": "dist/upgrade/upgrade-cli.js",
+    "dev-site": "dist/dev/cli.js"
   },
   "files": [
     "dist",

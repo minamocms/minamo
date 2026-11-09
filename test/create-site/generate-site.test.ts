@@ -98,13 +98,13 @@ test('scaffoldSite generates a real starter token: a valid sha256 hash in site.c
   }
 });
 
-test('the scaffolded server.js threads a --tunnel CLI flag through to startServer', () => {
+test('the scaffolded server.js starts the site plainly: the tunnel belongs to npm run dev, never npm start', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {
     scaffoldSite(targetDir);
     const serverJs = readFileSync(join(targetDir, 'vhost', 'server.js'), 'utf-8');
-    assert.match(serverJs, /process\.argv\.includes\(['"]--tunnel['"]\)/);
-    assert.match(serverJs, /startServer\(/);
+    assert.match(serverJs, /startServer\(join\(import\.meta\.dirname, '\.\.'\)\)/);
+    assert.ok(!serverJs.includes('tunnel'));
   } finally {
     cleanup();
   }
@@ -123,8 +123,8 @@ test('scaffoldSite pins @minamocms/framework to the exact installed version, and
     assert.ok(pkg.dependencies['@minamocms/framework']);
     assert.ok(!pkg.dependencies['@minamocms/framework'].startsWith('^'), 'the dependency must be pinned exact, not a range');
     assert.equal(pkg.scripts.start, 'node server.js');
-    assert.equal(pkg.scripts.tunnel, 'node server.js --tunnel');
-    assert.equal(pkg.scripts.dev, 'node --watch-path=../theme server.js');
+    assert.equal(pkg.scripts.tunnel, undefined);
+    assert.equal(pkg.scripts.dev, 'dev-site');
     assert.equal(pkg.scripts.stop, 'stop-site');
     assert.equal(pkg.scripts.pull, 'pull-site');
     assert.equal(pkg.scripts.push, 'push-site');
