@@ -263,3 +263,25 @@ test('waits for the connection to register and the name to be in DNS before givi
   assert.equal(tunnel.url, 'https://not-yet.trycloudflare.com');
   tunnel.close();
 });
+
+test('a new address after reopening goes to onAddressChange instead of the update-in-Settings reminder', async () => {
+  const lines: string[] = [];
+  const changes: string[] = [];
+  const spawned: FakeCloudflared[] = [];
+  const tunnel = await startDevTunnel(3123, {
+    ...quiet(lines),
+    reopenDelayMs: 1,
+    onAddressChange: (url) => changes.push(url),
+    spawnCloudflared: (args) => {
+      const child = new FakeCloudflared(args);
+      const n = spawned.push(child);
+      setImmediate(() => child.open(`https://address-${n}.trycloudflare.com`));
+      return child as unknown as ChildProcess;
+    },
+  });
+  spawned[0]?.crash();
+  await until(() => changes.length === 1);
+  assert.deepEqual(changes, ['https://address-2.trycloudflare.com']);
+  assert.ok(!lines.some((line) => line.includes('update this website')));
+  tunnel.close();
+});

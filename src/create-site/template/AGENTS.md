@@ -452,7 +452,7 @@ npm run dev         # same, plus auto-restart whenever a theme/ file changes - u
 npm run stop        # stops a site started by any of the above, from any terminal
 ```
 
-`npm run tunnel` uses a Cloudflare tunnel when `cloudflared` is installed (on a Mac, `brew install cloudflared`), and the much slower localtunnel otherwise. Its address is new each time, so the website's address in the admin needs updating to match.
+`npm run tunnel` uses a Cloudflare tunnel when `cloudflared` is installed (on a Mac, `brew install cloudflared`), and the much slower localtunnel otherwise. It also prints an "Edit in Minamo" link that opens the running site in the admin without adding it there; the link holds a key that works until the site stops, so treat it like a password.
 
 A site is deployed once; after that, `npm run pull` and `npm run push` move changes between this copy and the live site. `npm run pull` makes this copy match the live site for whatever is chosen - content (pages, menus, redirects, site settings, images), theme, or both - asking for the address and access token (or `npm run pull -- <its URL>` with `CMS_TOKEN` set). It refuses while the parts it would overwrite have uncommitted changes, and commits nothing. `npm run push` sends back only what changed here since the last pull: anything an editor changed on the live site since then stops the push and is listed instead of overwritten, it shows everything it will change, and it asks for the site's address to be typed first. After `npm run upgrade` it can also upgrade the live site's CMS. Never run push on a user's behalf without them confirming.
 

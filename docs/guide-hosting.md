@@ -137,9 +137,11 @@ The tunnel goes through one of two services:
 - **Cloudflare**, when the `cloudflared` program is installed. On a Mac: `brew install cloudflared`. On Windows: `winget install --id Cloudflare.cloudflared`. On Linux, see Cloudflare's downloads page. No Cloudflare account is needed. This is much faster: in testing, a page took about 0.1s through it against about 1.3s through localtunnel, and a full page with its images about 0.3s against 11s.
 - **localtunnel**, otherwise (or if `cloudflared` won't start). It works with nothing extra installed, but is slow and often drops images partway through loading. The startup output says which one is in use.
 
-The address (`https://<random words>.trycloudflare.com` or `https://<random words>.loca.lt`) is new each time the site starts, so update the website's address in the admin when it changes.
+The address (`https://<random words>.trycloudflare.com` or `https://<random words>.loca.lt`) is new each time the site starts.
 
-If the tunnel drops while the site is running, it's reported in the terminal and reopened automatically. localtunnel asks for the same address back. A reopened Cloudflare tunnel has a new address, and the terminal says so.
+Alongside it, the terminal prints an **Edit in Minamo** link. Opening it (signed in to the Minamo admin) edits this local site straight away, without adding it to your websites. The link holds a key made when the site started: it works as an access token for this site until the site stops, and is never saved anywhere. Anyone with the link and a Minamo account can edit the site while it runs, so share it only with someone you mean to. The link goes to `adminBaseUrl` (`https://cms.minamo.app` unless set otherwise), and isn't printed when that's `false`.
+
+If the tunnel drops while the site is running, it's reported in the terminal and reopened automatically. localtunnel asks for the same address back. A reopened Cloudflare tunnel has a new address, and the terminal prints a new Edit in Minamo link for it.
 
 Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence; if the tunnel itself fails to start (network issue, etc.), the site keeps running locally regardless - a failed tunnel is never a reason the whole server fails to boot.
 

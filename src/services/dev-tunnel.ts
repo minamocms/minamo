@@ -56,6 +56,9 @@ export interface DevTunnelDeps {
   reopenDelayMs?: number;
   // Give up after this many reopen attempts in a row fail.
   maxReopenAttempts?: number;
+  // Called when a reopened tunnel has a new address. Without it, a
+  // reminder to update the website's address in the admin is printed.
+  onAddressChange?: (url: string) => void;
 }
 
 const QUICK_TUNNEL_URL = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
@@ -102,6 +105,7 @@ interface Settings {
   startTimeoutMs: number;
   reopenDelayMs: number;
   maxReopenAttempts: number;
+  onAddressChange: ((url: string) => void) | undefined;
 }
 
 function settingsFrom(deps: DevTunnelDeps): Settings {
@@ -114,6 +118,7 @@ function settingsFrom(deps: DevTunnelDeps): Settings {
     startTimeoutMs: deps.startTimeoutMs ?? 30_000,
     reopenDelayMs: deps.reopenDelayMs ?? 2_000,
     maxReopenAttempts: deps.maxReopenAttempts ?? 5,
+    onAddressChange: deps.onAddressChange,
   };
 }
 
@@ -248,7 +253,11 @@ async function keepOpen(
           settings.log(`Tunnel open again: ${current.url}`);
         } else {
           settings.log(`Tunnel open again, at a new address: ${current.url}`);
-          settings.warn("The address has changed, so update this website's address in the admin (Settings) to the new one.");
+          if (settings.onAddressChange) {
+            settings.onAddressChange(current.url);
+          } else {
+            settings.warn("The address has changed, so update this website's address in the admin (Settings) to the new one.");
+          }
         }
         return;
       } catch (error) {

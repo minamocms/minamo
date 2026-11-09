@@ -410,6 +410,91 @@ test('tunnel: true starts the injected tunnel, prints its URL and a security war
   }
 });
 
+test('tunnel: true prints an Edit in Minamo link whose key works on this site until it stops', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const log = mock.method(console, 'log', () => {});
+  const startTunnel = async () => ({ url: 'https://example-tunnel.test', close: () => {} });
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    try {
+      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      const line = printed.find((entry) => entry.startsWith('Edit in Minamo: '));
+      assert.ok(line, 'expected an Edit in Minamo link');
+      const link = new URL(line.slice('Edit in Minamo: '.length));
+      assert.equal(link.origin + link.pathname, 'https://cms.minamo.app/local');
+      const fragment = new URLSearchParams(link.hash.slice(1));
+      assert.equal(fragment.get('site'), 'https://example-tunnel.test');
+      const key = fragment.get('key');
+      assert.ok(key);
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+      const withKey = await fetch(`http://127.0.0.1:${address.port}/v1/content`, { headers: { authorization: `Bearer ${key}` } });
+      assert.equal(withKey.status, 200, 'the key must be accepted as an access token');
+      const withoutKey = await fetch(`http://127.0.0.1:${address.port}/v1/content`, { headers: { authorization: 'Bearer not-the-key' } });
+      assert.equal(withoutKey.status, 401);
+      const config = JSON.parse(readFileSync(join(siteRoot, 'vhost/site.config.json'), 'utf8')) as Record<string, unknown>;
+      assert.equal(config.tokens, undefined, 'the key must never be written to site.config.json');
+    } finally {
+      await app.close();
+    }
+  } finally {
+    log.mock.restore();
+    cleanup();
+  }
+});
+
+test('tunnel: true prints a new Edit in Minamo link, with the same key, when the tunnel reopens at a new address', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const log = mock.method(console, 'log', () => {});
+  let changeAddress: ((url: string) => void) | undefined;
+  const startTunnel = async (_port: number, deps?: { onAddressChange?: (url: string) => void }) => {
+    changeAddress = deps?.onAddressChange;
+    return { url: 'https://first.test', close: () => {} };
+  };
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    try {
+      assert.ok(changeAddress, 'the server must ask to hear about a new address');
+      changeAddress('https://second.test');
+      const links = log.mock.calls
+        .map((call) => String(call.arguments[0]))
+        .filter((entry) => entry.startsWith('Edit in Minamo: '))
+        .map((entry) => new URLSearchParams(new URL(entry.slice('Edit in Minamo: '.length)).hash.slice(1)));
+      assert.deepEqual(links.map((fragment) => fragment.get('site')), ['https://first.test', 'https://second.test']);
+      assert.equal(links[0]?.get('key'), links[1]?.get('key'));
+    } finally {
+      await app.close();
+    }
+  } finally {
+    log.mock.restore();
+    cleanup();
+  }
+});
+
+test('no Edit in Minamo link (and no extra key) with "adminBaseUrl": false', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const log = mock.method(console, 'log', () => {});
+  const startTunnel = async () => ({ url: 'https://example-tunnel.test', close: () => {} });
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0, adminBaseUrl: false });
+    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    try {
+      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      assert.ok(!printed.some((entry) => entry.includes('Edit in Minamo')));
+      assert.ok(printed.some((entry) => entry.includes('https://example-tunnel.test')));
+    } finally {
+      await app.close();
+    }
+  } finally {
+    log.mock.restore();
+    cleanup();
+  }
+});
+
 test('EADDRINUSE prints a clear, actionable message (PORT env var / site.config.json) instead of a raw Node stack trace', async () => {
   const { siteRoot: occupantRoot, cleanup: cleanupOccupant } = createTmpSiteRoot({ git: true, contentDirs: true });
   const { siteRoot: contenderRoot, cleanup: cleanupContender } = createTmpSiteRoot({ git: true, contentDirs: true });

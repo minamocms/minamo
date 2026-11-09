@@ -12,7 +12,8 @@ import { searchPublicRoutes } from './routes/search-public.ts';
 import { sitemapRoutes } from './routes/sitemap.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
 import type { DevTunnel } from './services/dev-tunnel.ts';
-import { startDevTunnel } from './services/dev-tunnel.ts';
+import { startDevTunnel, type DevTunnelDeps } from './services/dev-tunnel.ts';
+import { createLocalEditKey, localEditLink } from './services/local-edit-link.ts';
 import { startIntervalJob } from './services/interval-job.ts';
 import { reindexOnBootIfMissing } from './services/reindex-on-write.ts';
 import { isProcessAlive, readPidFile, removeOwnPidFile, writePidFile } from './services/pid-file.ts';
@@ -25,7 +26,7 @@ export interface StartServerOptions extends BuildServerOptions {
   tunnel?: boolean;
   // Injectable so tests can exercise the failure path without a real
   // network call - defaults to the real startDevTunnel.
-  startTunnel?: (port: number) => Promise<DevTunnel>;
+  startTunnel?: (port: number, deps?: Pick<DevTunnelDeps, 'onAddressChange'>) => Promise<DevTunnel>;
 }
 
 // Never wrap v1Routes (or any route-group plugin it registers) with
@@ -152,6 +153,13 @@ export async function startServer(
 ): Promise<FastifyInstance> {
   const booted = bootSite(siteRoot);
   const serverConfig = loadServerConfig(siteRoot);
+  // With a tunnel (and an admin to link to), a key for the "Edit in
+  // Minamo" link (services/local-edit-link.ts), accepted only while this
+  // process runs.
+  const localEdit = options.tunnel && serverConfig.adminBaseUrl ? createLocalEditKey() : undefined;
+  if (localEdit) {
+    serverConfig.tokens = [...serverConfig.tokens, localEdit.token];
+  }
   const app = buildServer(booted, serverConfig, options);
 
   // Previously these three failure cases (missing/invalid {% schema %}
@@ -253,10 +261,23 @@ export async function startServer(
     try {
       // The real bound port, for the same reason as the message above.
       const tunnelPort = address !== null && typeof address !== 'string' ? address.port : serverConfig.port;
-      tunnel = await (options.startTunnel ?? startDevTunnel)(tunnelPort);
+      const adminBaseUrl = serverConfig.adminBaseUrl;
+      const printEditLink = (url: string): void => {
+        if (localEdit && adminBaseUrl) {
+          console.log(`Edit in Minamo: ${localEditLink(adminBaseUrl, url, localEdit.key)}`);
+        }
+      };
+      tunnel = await (options.startTunnel ?? startDevTunnel)(
+        tunnelPort,
+        localEdit ? { onAddressChange: (url) => printEditLink(url) } : {},
+      );
       const through = tunnel.provider === 'cloudflared' ? ' (Cloudflare)' : tunnel.provider === 'localtunnel' ? ' (localtunnel)' : '';
       console.log(`Tunnel open${through}: ${tunnel.url}`);
+      printEditLink(tunnel.url);
       console.log('This URL is publicly reachable for as long as this process runs - anyone with it (and a valid access token) can reach this site. Do not leave it running unattended.');
+      if (localEdit) {
+        console.log('The Edit in Minamo link contains a key to this site that works until it stops. Share it only with someone you want editing it.');
+      }
     } catch (error) {
       // The site itself is already up and correctly serving locally -
       // a failed tunnel is not a reason to fail the whole boot.
