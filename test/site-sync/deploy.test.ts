@@ -226,7 +226,7 @@ test('npm run push refuses content for a live site on an older content format un
   try {
     const result = await runPush(localRoot, ['--content'], 'a-token\n');
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /uses an older content format .* Push the CMS upgrade with it/);
+    assert.match(result.stderr, /uses an older content format [\s\S]*Push the CMS upgrade with it/);
     assert.ok(live.url);
   } finally {
     await cleanup();

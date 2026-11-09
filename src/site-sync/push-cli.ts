@@ -10,6 +10,11 @@ import { executePush, preparePush, type PushPlan } from './push-site.ts';
 import type { ThemePlan } from './theme-sync.ts';
 import { SiteSyncError } from './remote-site.ts';
 import { readSyncRecord } from './sync-record.ts';
+import { err, out } from '../terminal/ui.ts';
+
+// Progress, questions and problems on stderr; the result on stdout.
+const ui = err();
+const result = out();
 
 const args = parseSyncArgs(process.argv.slice(2));
 const dryRun = args.flags.has('--dry-run');
@@ -19,10 +24,7 @@ const dryRun = args.flags.has('--dry-run');
 const config = loadSiteConfig(resolve(process.cwd(), '..'));
 
 function fail(message: string, ...more: string[]): never {
-  console.error(message);
-  for (const line of more) {
-    console.error(line);
-  }
+  ui.error(message, ...more);
   process.exit(1);
 }
 
@@ -36,29 +38,46 @@ if (!siteUrl) {
   fail(given.trim() === '' ? 'No address entered.' : `"${given}" is not a web address.`);
 }
 
-function printContentPlan(plan: PushPlan): void {
-  const labels = { create: 'new page ', update: 'update   ', delete: 'DELETE   ' } as const;
-  for (const change of plan.changes) {
-    console.error(`  ${labels[change.action]} content/${change.path}`);
-  }
+type Change = { action: string; tone: 'add' | 'change' | 'remove'; target: string };
+
+function contentPlanChanges(plan: PushPlan): Change[] {
+  const labels = {
+    create: ['new page', 'add'],
+    update: ['update', 'change'],
+    delete: ['DELETE', 'remove'],
+  } as const;
+  const changes: Change[] = plan.changes.map((change) => ({
+    action: labels[change.action][0],
+    tone: labels[change.action][1],
+    target: `content/${change.path}`,
+  }));
   for (const operation of plan.redirectOperations) {
     const { from, to } = operation.entry;
-    const verb = { POST: 'add redirect   ', PUT: 'change redirect', DELETE: 'REMOVE redirect' }[operation.method];
-    console.error(`  ${verb} ${from}${operation.method === 'DELETE' ? '' : ` -> ${to}`}`);
+    const [action, tone] = (
+      { POST: ['add redirect', 'add'], PUT: ['change redirect', 'change'], DELETE: ['REMOVE redirect', 'remove'] } as const
+    )[operation.method];
+    changes.push({ action, tone, target: `${from}${operation.method === 'DELETE' ? '' : ` -> ${to}`}` });
   }
   for (const name of plan.mediaToUpload) {
-    console.error(`  upload    media/${name}`);
+    changes.push({ action: 'upload', tone: 'add', target: `media/${name}` });
   }
   if (plan.settings) {
-    console.error('  update    content/settings.json (site settings)');
+    changes.push({ action: 'update', tone: 'change', target: 'content/settings.json (site settings)' });
   }
+  return changes;
 }
 
-function printThemePlan(plan: ThemePlan): void {
-  const labels = { create: 'new file ', update: 'update   ', delete: 'DELETE   ' } as const;
-  for (const change of plan.changes) {
-    console.error(`  ${labels[change.action]} theme/${change.path}`);
-  }
+function themePlanChanges(plan: ThemePlan): Change[] {
+  const labels = {
+    create: ['new file', 'add'],
+    update: ['update', 'change'],
+    delete: ['DELETE', 'remove'],
+  } as const;
+  return plan.changes.map((change) => ({
+    action: labels[change.action][0],
+    tone: labels[change.action][1],
+    target: `theme/${change.path}`,
+  }));
 }
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -67,11 +86,11 @@ function contentCount(plan: PushPlan): number {
   return plan.changes.length + plan.redirectOperations.length + plan.mediaToUpload.length + (plan.settings ? 1 : 0);
 }
 
-function reportConflicts(conflicts: Array<{ path: string; reason: string }>, folder: string): void {
-  for (const conflict of conflicts) {
+function conflictLines(conflicts: Array<{ path: string; reason: string }>, folder: string): string[] {
+  return conflicts.map((conflict) => {
     const path = conflict.path === 'redirects.json' ? 'content/redirects.json' : `${folder}/${conflict.path}`;
-    console.error(`  ${path}: ${conflict.reason}`);
-  }
+    return `${path}: ${conflict.reason}`;
+  });
 }
 
 // Narrowed once here, for the functions below.
@@ -79,7 +98,7 @@ const liveUrl: string = siteUrl;
 const host = new URL(liveUrl).host;
 
 async function confirmByAddress(): Promise<void> {
-  const typed = await ask(`Type ${host} to go ahead, or anything else to cancel: `);
+  const typed = await ask(` Type ${ui.style(host, 'bold')} to go ahead, or anything else to cancel: `.slice(ui.fancy ? 0 : 1));
   if (typed.trim().toLowerCase() !== host.toLowerCase()) {
     fail('Cancelled. Nothing was pushed.');
   }
@@ -91,54 +110,71 @@ async function confirmByAddress(): Promise<void> {
 // them - and nothing else is sent if it doesn't.
 async function upgradeLiveCms(liveVersion: string, localVersion: string): Promise<void> {
   const method = detectDeployMethod(config.siteRoot);
-  console.error(`\nStep 1: upgrade the live site's CMS from ${liveVersion} to ${localVersion}, using ${describeDeployMethod(method)}.`);
-  console.error('  - The live site restarts, and is unavailable for a moment.');
-  console.error('  - Its content and theme are not touched by the upgrade.');
+  ui.blank();
+  ui.heading(`Step 1: upgrade the live site's CMS from ${liveVersion} to ${localVersion}, using ${describeDeployMethod(method)}.`);
+  ui.list(['The live site restarts, and is unavailable for a moment.', 'Its content and theme are not touched by the upgrade.']);
   if (dryRun) {
     return;
   }
-  console.error('');
+  ui.blank();
   await confirmByAddress();
 
   if (method.kind === 'manual') {
-    console.error(`\nDeploy the site now, the way you usually deploy to your host. (To have push do it for you next time, put the command in vhost/deploy.json, for example { "command": "git push" }.)`);
+    ui.blank();
+    ui.info(
+      'Deploy the site now, the way you usually deploy to your host.',
+      'To have push do it for you next time, put the command in vhost/deploy.json, for example { "command": "git push" }.',
+    );
     await ask('Press Enter once the deploy has started: ');
   } else if (!runDeploy(method, config.siteRoot)) {
     fail('The deploy failed, so nothing else was pushed. Its output is above.');
   }
 
-  console.error(`Waiting for the live site to come back on ${localVersion}...`);
+  const waiting = ui.spinner(`Waiting for the live site to come back on ${localVersion}`);
   let lastReported: string | null | undefined;
   const outcome = await waitForLiveVersion(liveUrl, localVersion, {
     onPoll: (seen) => {
       if (seen !== lastReported) {
-        console.error(seen === null ? '  (restarting, not answering yet)' : `  live site on ${seen}`);
+        waiting.update(
+          `Waiting for the live site to come back on ${localVersion} (${seen === null ? 'restarting, not answering yet' : `live site on ${seen}`})`,
+        );
         lastReported = seen;
       }
     },
   });
   if (!outcome.ok) {
-    fail(`Stopped without pushing anything else: ${outcome.reason}. Check the deploy on your host.`);
+    waiting.stop();
+    fail(`Stopped without pushing anything else: ${outcome.reason}.`, 'Check the deploy on your host.');
   }
-  console.error(`The live site is now on ${localVersion}.`);
+  waiting.succeed(`The live site is now on ${localVersion}.`);
 }
 
 try {
+  ui.header('minamo push', siteUrl);
   const token = await resolveToken(args, siteUrl);
-  const prepare = () =>
-    preparePush(config, {
-      siteUrl,
-      token,
-      onWait: (seconds) => console.error(`  The live site asked to slow down; waiting ${seconds}s...`),
-    });
-  console.error(`Comparing this copy with ${siteUrl}...`);
-  let prepared = await prepare();
+  const prepare = async (message: string) => {
+    const comparing = ui.spinner(message);
+    try {
+      const done = await preparePush(config, {
+        siteUrl,
+        token,
+        onWait: (seconds) => comparing.update(`${message} (the live site asked to slow down; waiting ${seconds}s)`),
+      });
+      comparing.succeed(`Compared with ${siteUrl}`);
+      return done;
+    } catch (error) {
+      comparing.stop();
+      throw error;
+    }
+  };
+  let prepared = await prepare(`Comparing this copy with ${siteUrl}`);
 
   const localVersion = readAgentVersion();
   const versionOrder = compareVersions(localVersion, prepared.liveVersion);
   if (versionOrder < 0) {
-    console.error(
-      `Note: the live site runs a newer CMS (${prepared.liveVersion}) than this copy (${localVersion}). Run npm run upgrade here to match it.`,
+    ui.warn(
+      `Note: the live site runs a newer CMS (${prepared.liveVersion}) than this copy (${localVersion}).`,
+      `Run ${ui.command('npm run upgrade')} here to match it.`,
     );
   }
 
@@ -150,8 +186,14 @@ try {
   const first = describe();
   const firstPush = (first.content?.firstPush ?? false) || (first.theme?.firstPush ?? false);
   if (firstPush) {
-    console.error(
-      `\nFirst push from this copy to ${siteUrl}. Until this copy has pulled from the live site, push can't tell your changes apart from changes made on the live site, so it lists everything that differs. Check the list carefully. Nothing is deleted from the live site on a first push.`,
+    ui.blank();
+    ui.box(
+      `First push from this copy to ${siteUrl}`,
+      [
+        "Until this copy has pulled from the live site, push can't tell your changes apart from changes made on the live site, so it lists everything that differs. Check the list carefully.",
+        'Nothing is deleted from the live site on a first push.',
+      ],
+      'warn',
     );
   }
   const parts = await chooseParts(args, 'push', {
@@ -175,12 +217,13 @@ try {
         : { available: false, detail: `the live site already runs ${prepared.liveVersion}`, checked: false },
   });
   if (!parts.content && !parts.theme && !parts.cms) {
-    console.log('Nothing chosen. Nothing was pushed.');
+    result.info('Nothing chosen. Nothing was pushed.');
     process.exit(0);
   }
   if ((parts.content || parts.theme) && prepared.liveSchemaOlder && !parts.cms) {
     fail(
-      `The live site's CMS (${prepared.liveVersion}) uses an older content format than this copy's (${localVersion}), and could reject what it's sent. Push the CMS upgrade with it (npm run push, and tick CMS upgrade).`,
+      `The live site's CMS (${prepared.liveVersion}) uses an older content format than this copy's (${localVersion}), and could reject what it's sent.`,
+      `Push the CMS upgrade with it (${ui.command('npm run push')}, and tick CMS upgrade).`,
     );
   }
 
@@ -191,24 +234,31 @@ try {
     }
     await upgradeLiveCms(prepared.liveVersion, localVersion);
     if (!parts.content && !parts.theme) {
-      console.log(dryRun ? '\nDry run: nothing was pushed.' : `Pushed to ${siteUrl}: the CMS upgrade to ${localVersion}.`);
+      result.blank();
+      if (dryRun) {
+        result.info('Dry run: nothing was pushed.');
+      } else {
+        result.success(`Pushed to ${siteUrl}: the CMS upgrade to ${localVersion}.`);
+      }
       process.exit(0);
     }
     if (dryRun) {
-      console.log('\nDry run: nothing was pushed. (What content and theme would change is worked out once the upgrade is live.)');
+      result.blank();
+      result.info('Dry run: nothing was pushed.', 'What content and theme would change is worked out once the upgrade is live.');
       process.exit(0);
     }
     // Planned again against the upgraded site: what it reports can have
     // changed with it (a theme it could not report before, for one).
-    console.error(`\nStep 2: your content and theme changes. Comparing again with the upgraded site...`);
-    prepared = await prepare();
+    ui.blank();
+    ui.heading('Step 2: your content and theme changes.');
+    prepared = await prepare('Comparing again with the upgraded site');
   }
 
   const { content, theme, contentChanges, themeChanges } = describe();
   const pushContent = parts.content && content !== null;
   const pushTheme = parts.theme && theme !== null;
   if (parts.theme && theme === null) {
-    console.error(`The theme can't be pushed: ${(prepared.theme as { reason: string }).reason}.`);
+    ui.warn(`The theme can't be pushed: ${(prepared.theme as { reason: string }).reason}.`);
   }
   if (!pushContent && !pushTheme) {
     process.exit(parts.cms ? 0 : 1);
@@ -218,77 +268,87 @@ try {
   const themeConflicts = pushTheme ? theme.plan.conflicts : [];
   const mediaMissing = pushContent ? content.plan.mediaMissing : [];
   if (contentConflicts.length > 0 || themeConflicts.length > 0 || mediaMissing.length > 0) {
-    console.error('Nothing more was pushed.');
+    ui.blank();
+    ui.error('Nothing more was pushed.');
     if (contentConflicts.length > 0 || themeConflicts.length > 0) {
-      console.error('\nThese were changed on the live site since your last pull, and pushing would overwrite that work:');
-      reportConflicts(themeConflicts, 'theme');
-      reportConflicts(contentConflicts, 'content');
-      console.error(
-        '\nTo keep both: commit your work here, run npm run pull to bring in the live changes, reapply yours on top, then push again.',
+      ui.blank();
+      ui.line(ui.fancy ? ' These were changed on the live site since your last pull, and pushing would overwrite that work:' : 'These were changed on the live site since your last pull, and pushing would overwrite that work:');
+      ui.list([...conflictLines(themeConflicts, 'theme'), ...conflictLines(contentConflicts, 'content')]);
+      ui.blank();
+      ui.info(
+        `To keep both: commit your work here, run ${ui.command('npm run pull')} to bring in the live changes, reapply yours on top, then push again.`,
       );
     }
     if (mediaMissing.length > 0) {
-      console.error('\nThese images are used by pages being pushed, but are missing here and on the live site:');
-      for (const name of mediaMissing) {
-        console.error(`  media/${name}`);
-      }
+      ui.blank();
+      ui.line(ui.fancy ? ' These images are used by pages being pushed, but are missing here and on the live site:' : 'These images are used by pages being pushed, but are missing here and on the live site:');
+      ui.list(mediaMissing.map((name) => `media/${name}`));
     }
     process.exit(1);
   }
 
   const total = (pushContent ? contentChanges : 0) + (pushTheme ? themeChanges : 0);
   if (total === 0) {
-    console.log('Nothing to push: the live site already has everything changed here since your last pull.');
+    result.success('Nothing to push: the live site already has everything changed here since your last pull.');
     process.exit(0);
   }
 
-  console.error(`\nThis will change the LIVE site at ${siteUrl}:\n`);
-  if (pushTheme) {
-    printThemePlan(theme.plan);
-  }
-  if (pushContent) {
-    printContentPlan(content.plan);
-  }
+  ui.blank();
+  ui.heading(`This will change the LIVE site at ${siteUrl}:`);
+  ui.blank();
+  ui.changes([...(pushTheme ? themePlanChanges(theme.plan) : []), ...(pushContent ? contentPlanChanges(content.plan) : [])]);
   if (dryRun) {
-    console.log('\nDry run: nothing was pushed.');
+    result.blank();
+    result.info('Dry run: nothing was pushed.');
     process.exit(0);
   }
 
   const deletes = pushContent ? content.plan.changes.filter((change) => change.action === 'delete').length : 0;
-  console.error('\nWARNING: this overwrites the live website, straight away.');
+  const warnings: string[] = [];
   if (pushTheme) {
-    console.error('  - The theme files listed replace the live ones, and every page shows the new theme at once.');
+    warnings.push('The theme files listed replace the live ones, and every page shows the new theme at once.');
   }
   if (pushContent) {
-    console.error('  - Every page listed is published as it is here, replacing what visitors see now.');
+    warnings.push('Every page listed is published as it is here, replacing what visitors see now.');
   }
   if (deletes > 0) {
-    console.error(`  - ${plural(deletes, 'page')} ${deletes === 1 ? 'is' : 'are'} deleted from the live site.`);
+    warnings.push(`${plural(deletes, 'page')} ${deletes === 1 ? 'is' : 'are'} deleted from the live site.`);
   }
   if ((pushContent && content.firstPush) || (pushTheme && theme.firstPush)) {
-    console.error('  - FIRST PUSH: every difference is listed, including any that came from editors on the live site. Anything listed replaces the live version.');
+    warnings.push('FIRST PUSH: every difference is listed, including any that came from editors on the live site. Anything listed replaces the live version.');
   } else {
-    console.error('  - Anything changed on the live site since your last pull is left alone (none is listed above).');
+    warnings.push('Anything changed on the live site since your last pull is left alone (none is listed above).');
   }
-  console.error('  - Earlier versions stay in the live site\'s history, if you need to go back.\n');
+  warnings.push("Earlier versions stay in the live site's history, if you need to go back.");
+  ui.blank();
+  ui.box(
+    ui.fancy ? 'This overwrites the live website, straight away' : 'WARNING: this overwrites the live website, straight away.',
+    warnings.map((warning) => `${ui.fancy ? '•' : '-'} ${warning}`),
+    'warn',
+  );
+  ui.blank();
   await confirmByAddress();
 
-  const result = await executePush(prepared, { content: pushContent, theme: pushTheme });
-  console.log(`Pushed to ${siteUrl}:`);
+  const sending = ui.spinner(`Pushing to ${siteUrl}`);
+  const pushed = await executePush(prepared, { content: pushContent, theme: pushTheme }).finally(() => sending.stop());
+  result.blank();
+  result.success(`Pushed to ${siteUrl}:`);
+  const summary: Array<[string, string]> = [];
   if (parts.cms) {
-    console.log(`  CMS: upgraded to ${localVersion}`);
+    summary.push(['CMS', `upgraded to ${localVersion}`]);
   }
-  if (result.theme) {
-    console.log(`  theme: ${plural(result.theme.files, 'file')} changed, live now`);
-    for (const warning of result.theme.warnings) {
-      console.log(`  warning: ${warning}`);
+  if (pushed.theme) {
+    summary.push(['theme', `${plural(pushed.theme.files, 'file')} changed, live now`]);
+    for (const warning of pushed.theme.warnings) {
+      summary.push(['warning', warning]);
     }
   }
-  if (result.content) {
-    const done = result.content;
-    console.log(`  content: ${done.created} new, ${done.updated} updated, ${done.deleted} deleted`);
-    console.log(`  ${plural(done.redirects, 'redirect change')}, ${plural(done.mediaUploaded, 'image')} uploaded${done.settings ? ', site settings updated' : ''}`);
+  if (pushed.content) {
+    const done = pushed.content;
+    summary.push(['content', `${done.created} new, ${done.updated} updated, ${done.deleted} deleted`]);
+    summary.push(['other', `${plural(done.redirects, 'redirect change')}, ${plural(done.mediaUploaded, 'image')} uploaded${done.settings ? ', site settings updated' : ''}`]);
   }
+  result.details(summary);
 } catch (error) {
   if (error instanceof SiteSyncError) {
     fail(error.message, ...(error.reason === 'unauthorised' ? [TOKEN_HELP] : []));

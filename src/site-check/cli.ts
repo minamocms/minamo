@@ -2,6 +2,9 @@
 import { resolve } from 'node:path';
 import { runSiteCheck } from './run-check.ts';
 import type { CheckFinding, CheckFindingKind } from './run-check.ts';
+import { out } from '../terminal/ui.ts';
+
+const ui = out();
 
 // Run from vhost/ (see the scaffold's own "check" script), so the
 // site root is one level up - the exact same relative relationship
@@ -24,10 +27,11 @@ function printGrouped(findings: CheckFinding[]): void {
     byKind.set(finding.kind, list);
   }
   for (const [kind, list] of byKind) {
-    console.log(`\n${KIND_LABELS[kind]} (${list.length}):`);
+    ui.blank();
+    ui.heading(`${KIND_LABELS[kind]} (${list.length}):`);
     for (const finding of list) {
-      const location = finding.pageUrl ? `  ${finding.pageUrl}: ` : '  ';
-      console.log(`${location}${finding.message}`);
+      const where = finding.pageUrl ? `${ui.fancy ? ui.style(finding.pageUrl, 'cyan') : finding.pageUrl}: ` : '';
+      ui.line(`  ${ui.fancy ? `${ui.style('✖', 'red')} ` : ''}${where}${finding.message}`);
     }
   }
 }
@@ -36,21 +40,24 @@ function printSuggestions(suggestions: string[]): void {
   if (suggestions.length === 0) {
     return;
   }
-  console.log(`\nSuggestions (${suggestions.length}):`);
+  ui.blank();
+  ui.heading(`Suggestions (${suggestions.length}):`);
   for (const suggestion of suggestions) {
-    console.log(`  ${suggestion}`);
+    ui.line(`  ${ui.fancy ? `${ui.style('•', 'cyan')} ` : ''}${suggestion}`);
   }
 }
 
-const result = await runSiteCheck(siteRoot);
+ui.header('minamo check');
+const checking = ui.spinner('Rendering every published page');
+const result = await runSiteCheck(siteRoot).finally(() => checking.stop());
 
 if (result.ok) {
-  console.log('No problems found.');
+  ui.success('No problems found.');
   printSuggestions(result.suggestions);
   process.exit(0);
 }
 
-console.log(`${result.findings.length} problem${result.findings.length === 1 ? '' : 's'} found:`);
+ui.error(`${result.findings.length} problem${result.findings.length === 1 ? '' : 's'} found:`);
 printGrouped(result.findings);
 printSuggestions(result.suggestions);
 process.exit(1);

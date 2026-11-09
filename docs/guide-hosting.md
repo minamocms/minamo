@@ -132,17 +132,30 @@ This is a full render crawl, not a static content scan - it exists specifically 
 
 `npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL, printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
 
-The tunnel goes through one of two services:
+It needs Cloudflare's free `cloudflared` program, installed once. No Cloudflare account is needed.
 
-- **Cloudflare**, when the `cloudflared` program is installed. On a Mac: `brew install cloudflared`. On Windows: `winget install --id Cloudflare.cloudflared`. On Linux, see Cloudflare's downloads page. No Cloudflare account is needed. This is much faster: in testing, a page took about 0.1s through it against about 1.3s through localtunnel, and a full page with its images about 0.3s against 11s.
-- **localtunnel**, otherwise (or if `cloudflared` won't start). It works with nothing extra installed, but is slow and often drops images partway through loading. The startup output says which one is in use.
+- On a Mac: `brew install cloudflared`
+- On Windows: `winget install --id Cloudflare.cloudflared`
+- On Linux: see Cloudflare's downloads page
 
-The address (`https://<random words>.trycloudflare.com` or `https://<random words>.loca.lt`) is new each time the site starts.
+Without it, the site starts as normal and the terminal says the tunnel needs `cloudflared`, with the command to install it. If Cloudflare doesn't hand out a tunnel at the first try, it tries twice more before saying why it couldn't; the site keeps running locally either way. (Until 0.14.0 there was a fallback, localtunnel. It was removed: it was much slower, often dropped images, and its "click to continue" page broke the admin's preview.)
+
+The address (`https://<random words>.trycloudflare.com`) is new each time the site starts.
 
 Alongside it, the terminal prints an **Edit in Minamo** link. Opening it (signed in to the Minamo admin) edits this local site straight away, without adding it to your websites. The link holds a key made when the site started: it works as an access token for this site until the site stops, and is never saved anywhere. Anyone with the link and a Minamo account can edit the site while it runs, so share it only with someone you mean to. The link goes to `adminBaseUrl` (`https://cms.minamo.app` unless set otherwise), and isn't printed when that's `false`.
 
-If the tunnel drops while the site is running, it's reported in the terminal and reopened automatically. localtunnel asks for the same address back. A reopened Cloudflare tunnel has a new address, and the terminal prints a new Edit in Minamo link for it.
+If the tunnel drops while the site is running, it's reported in the terminal and reopened automatically. A reopened tunnel has a new address, and the terminal prints a new Edit in Minamo link for it (with the same key, so an editor already open carries on once the new link is opened).
 
-Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence; if the tunnel itself fails to start (network issue, etc.), the site keeps running locally regardless - a failed tunnel is never a reason the whole server fails to boot.
+Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence.
 
 **This exposes the site publicly for as long as the process runs.** Anyone with the URL and a valid access token can reach it. Don't leave it running unattended, and don't use it as a substitute for real hosting.
+
+## In the terminal
+
+While a site runs at a terminal (`npm start`, `npm run dev`, `npm run tunnel`), single keys work as shortcuts, listed under the startup messages:
+
+- `e` opens the Edit in Minamo link in your browser (with `--tunnel`)
+- `o` opens the site itself
+- `q` stops the site, the same as `Ctrl+C`
+
+This package's commands use colour, symbols (✔ done, ! worth knowing, ✖ went wrong) and progress spinners at a terminal. Anywhere else (output piped to a file, a host's logs, CI) they print the same words as plain lines, with no colour, symbols, boxes, spinners or shortcuts. To get plain output at a terminal too, set `MINAMO_PLAIN=1`. Colour also follows the usual `NO_COLOR` and `FORCE_COLOR` settings.

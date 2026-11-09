@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from 'node:util';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -120,7 +121,7 @@ test('choose in a terminal: arrows move, space ticks, Enter confirms, and the te
 
   assert.deepEqual(await answer, ['content', 'theme']);
   assert.deepEqual(terminal.rawModes, [true, false]);
-  assert.match(output.text(), /\[x\] Content\s+\(3 changes\)/);
+  assert.match(stripVTControlCharacters(output.text()), /◉ Content\s+3 changes/);
   assert.ok(output.text().endsWith('\u001b[?25h'), 'the cursor is shown again at the end');
 });
 

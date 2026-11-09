@@ -1,4 +1,5 @@
 import { PromptCancelledError, createPrompter, type Choice } from './prompts.ts';
+import { err } from '../terminal/ui.ts';
 
 export interface SyncArgs {
   positional: string[];
@@ -38,10 +39,9 @@ export const TOKEN_HELP =
 // CMS_TOKEN and --token still work for scripts, but either leaves the
 // token in shell history; asked for, it goes nowhere.
 export async function resolveToken(args: SyncArgs, siteUrl: string): Promise<string> {
-  const token = args.token ?? process.env.CMS_TOKEN ?? (await ask(`Access token for ${siteUrl} (hidden): `, true));
+  const token = args.token ?? process.env.CMS_TOKEN ?? (await ask(`${err().fancy ? ' ' : ''}Access token for ${siteUrl} (hidden): `, true));
   if (!token) {
-    console.error('No token entered.');
-    console.error(TOKEN_HELP);
+    err().error('No token entered.', TOKEN_HELP);
     process.exit(1);
   }
   return token;
@@ -68,12 +68,12 @@ export async function chooseParts(
   const flagged = { content: args.flags.has('--content'), theme: args.flags.has('--theme'), cms: args.flags.has('--cms') };
   if (flagged.content || flagged.theme || flagged.cms) {
     if (flagged.cms && !options.cms?.available) {
-      console.error(`Can't push a CMS upgrade: ${options.cms?.detail ?? 'the CMS here is not newer than the live site\'s'}.`);
+      err().error(`Can't push a CMS upgrade: ${options.cms?.detail ?? 'the CMS here is not newer than the live site\'s'}.`);
       process.exit(1);
     }
     for (const part of ['content', 'theme'] as const) {
       if (flagged[part] && !options[part].available) {
-        console.error(`Can't ${verb} the ${part}: ${options[part].detail}.`);
+        err().error(`Can't ${verb} the ${part}: ${options[part].detail}.`);
         process.exit(1);
       }
     }

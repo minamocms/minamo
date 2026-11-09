@@ -9,6 +9,8 @@ import { CURRENT_SCHEMA_VERSION } from '../src/migrations/index.ts';
 import { CHECKPOINT_MESSAGE, getCommitLog } from '../src/services/git-history.ts';
 import { DRIVER_NAME } from '../src/search/drivers/node-sqlite-driver.ts';
 import { createTmpSiteRoot, writeJson } from './helpers/tmp-site.ts';
+import { captureOutput } from './helpers/capture-output.ts';
+import type { DevTunnelEvent } from '../src/services/dev-tunnel.ts';
 
 const AGENT_PACKAGE_JSON = JSON.parse(
   readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf-8'),
@@ -344,16 +346,16 @@ test('H4: SIGTERM triggers the same graceful-shutdown checkpoint, not just a dir
 
 test('boot prints the real bound address, not just the configured port verbatim', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const log = mock.method(console, 'log');
+  const captured = captureOutput();
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { logger: false });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false });
     try {
       const address = app.server.address();
       if (address === null || typeof address === 'string') {
         throw new Error('expected a real bound network address');
       }
-      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      const printed = captured.all();
       assert.ok(
         printed.some((line) => line === `Site running at http://127.0.0.1:${address.port}`),
         `expected the real bound port (${address.port}) to be printed, not the configured 0`,
@@ -362,19 +364,18 @@ test('boot prints the real bound address, not just the configured port verbatim'
       await app.close();
     }
   } finally {
-    log.mock.restore();
     cleanup();
   }
 });
 
 test('a normal boot (no --tunnel) prints a one-line hint about the option, never blocks on input', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const log = mock.method(console, 'log');
+  const captured = captureOutput();
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { logger: false });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false });
     try {
-      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      const printed = captured.all();
       assert.ok(
         printed.some((line) => line.includes('--tunnel')),
         'expected a hint mentioning --tunnel to be printed on a normal boot',
@@ -383,14 +384,13 @@ test('a normal boot (no --tunnel) prints a one-line hint about the option, never
       await app.close();
     }
   } finally {
-    log.mock.restore();
     cleanup();
   }
 });
 
 test('tunnel: true starts the injected tunnel, prints its URL and a security warning, and closes it on shutdown', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const log = mock.method(console, 'log');
+  const captured = captureOutput();
   let closed = false;
   const startTunnel = async (port: number) => {
     assert.equal(typeof port, 'number');
@@ -398,27 +398,26 @@ test('tunnel: true starts the injected tunnel, prints its URL and a security war
   };
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
-    const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
+    const printed = captured.all();
     assert.ok(printed.some((line) => line.includes('https://example-tunnel.test')));
     assert.ok(printed.some((line) => line.toLowerCase().includes('publicly')));
     await app.close();
     assert.equal(closed, true, 'the tunnel must be closed on graceful shutdown');
   } finally {
-    log.mock.restore();
     cleanup();
   }
 });
 
 test('tunnel: true prints an Edit in Minamo link whose key works on this site until it stops', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const log = mock.method(console, 'log', () => {});
+  const captured = captureOutput();
   const startTunnel = async () => ({ url: 'https://example-tunnel.test', close: () => {} });
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
     try {
-      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      const printed = captured.all();
       const line = printed.find((entry) => entry.startsWith('Edit in Minamo: '));
       assert.ok(line, 'expected an Edit in Minamo link');
       const link = new URL(line.slice('Edit in Minamo: '.length));
@@ -441,27 +440,26 @@ test('tunnel: true prints an Edit in Minamo link whose key works on this site un
       await app.close();
     }
   } finally {
-    log.mock.restore();
     cleanup();
   }
 });
 
 test('tunnel: true prints a new Edit in Minamo link, with the same key, when the tunnel reopens at a new address', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const log = mock.method(console, 'log', () => {});
-  let changeAddress: ((url: string) => void) | undefined;
-  const startTunnel = async (_port: number, deps?: { onAddressChange?: (url: string) => void }) => {
-    changeAddress = deps?.onAddressChange;
+  const captured = captureOutput();
+  let report: ((event: DevTunnelEvent) => void) | undefined;
+  const startTunnel = async (_port: number, deps?: { report?: (event: DevTunnelEvent) => void }) => {
+    report = deps?.report;
     return { url: 'https://first.test', close: () => {} };
   };
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
     try {
-      assert.ok(changeAddress, 'the server must ask to hear about a new address');
-      changeAddress('https://second.test');
-      const links = log.mock.calls
-        .map((call) => String(call.arguments[0]))
+      assert.ok(report, 'the server must ask to hear about a new address');
+      report({ kind: 'reopened', url: 'https://second.test', changed: true });
+      const links = captured
+        .all()
         .filter((entry) => entry.startsWith('Edit in Minamo: '))
         .map((entry) => new URLSearchParams(new URL(entry.slice('Edit in Minamo: '.length)).hash.slice(1)));
       assert.deepEqual(links.map((fragment) => fragment.get('site')), ['https://first.test', 'https://second.test']);
@@ -470,27 +468,25 @@ test('tunnel: true prints a new Edit in Minamo link, with the same key, when the
       await app.close();
     }
   } finally {
-    log.mock.restore();
     cleanup();
   }
 });
 
 test('no Edit in Minamo link (and no extra key) with "adminBaseUrl": false', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const log = mock.method(console, 'log', () => {});
+  const captured = captureOutput();
   const startTunnel = async () => ({ url: 'https://example-tunnel.test', close: () => {} });
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0, adminBaseUrl: false });
-    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
     try {
-      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      const printed = captured.all();
       assert.ok(!printed.some((entry) => entry.includes('Edit in Minamo')));
       assert.ok(printed.some((entry) => entry.includes('https://example-tunnel.test')));
     } finally {
       await app.close();
     }
   } finally {
-    log.mock.restore();
     cleanup();
   }
 });
@@ -498,27 +494,26 @@ test('no Edit in Minamo link (and no extra key) with "adminBaseUrl": false', asy
 test('EADDRINUSE prints a clear, actionable message (PORT env var / site.config.json) instead of a raw Node stack trace', async () => {
   const { siteRoot: occupantRoot, cleanup: cleanupOccupant } = createTmpSiteRoot({ git: true, contentDirs: true });
   const { siteRoot: contenderRoot, cleanup: cleanupContender } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const error = mock.method(console, 'error', () => {});
+  const captured = captureOutput();
   const exit = mock.method(process, 'exit', () => undefined as never);
   let occupant;
   try {
     writeJson(occupantRoot, 'vhost/site.config.json', { port: 0 });
-    occupant = await startServer(occupantRoot, { logger: false });
+    occupant = await startServer(occupantRoot, { output: captured.output, logger: false });
     const address = occupant.server.address();
     if (address === null || typeof address === 'string') {
       throw new Error('expected a real bound network address');
     }
 
     writeJson(contenderRoot, 'vhost/site.config.json', { port: address.port });
-    await assert.rejects(() => startServer(contenderRoot, { logger: false }));
+    await assert.rejects(() => startServer(contenderRoot, { output: captured.output, logger: false }));
 
     assert.equal(exit.mock.calls.length, 1);
     assert.equal(exit.mock.calls[0]?.arguments[0], 1);
-    const printed = error.mock.calls.map((call) => String(call.arguments[0]));
+    const printed = captured.all();
     assert.ok(printed.some((line) => line.includes(`Port ${address.port} is already in use`)));
     assert.ok(printed.some((line) => line.includes('PORT environment variable') && line.includes('site.config.json')));
   } finally {
-    error.mock.restore();
     exit.mock.restore();
     await occupant?.close();
     cleanupOccupant();
@@ -528,13 +523,13 @@ test('EADDRINUSE prints a clear, actionable message (PORT env var / site.config.
 
 test('tunnel: true with a tunnel that fails to start does not prevent the server itself from booting and serving', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  const error = mock.method(console, 'error');
+  const captured = captureOutput();
   const startTunnel = async () => {
     throw new Error('simulated tunnel failure');
   };
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
-    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    const app = await startServer(siteRoot, { output: captured.output, logger: false, tunnel: true, startTunnel });
     try {
       const address = app.server.address();
       if (address === null || typeof address === 'string') {
@@ -546,7 +541,6 @@ test('tunnel: true with a tunnel that fails to start does not prevent the server
       await app.close();
     }
   } finally {
-    error.mock.restore();
     cleanup();
   }
 });

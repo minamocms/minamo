@@ -1,64 +1,58 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { Resolver } from 'node:dns/promises';
-import localtunnel from 'localtunnel';
 
-// Two ways to open the dev tunnel, tried in this order:
+// The dev tunnel (`npm run tunnel`): Cloudflare's free "quick tunnel",
+// through the `cloudflared` program (brew install cloudflared; no
+// Cloudflare account needed). It's a separate program the developer
+// installs, not an npm dependency, so nothing extra ships in this
+// package.
 //
-// 1. Cloudflare's free "quick tunnel", through the `cloudflared` program
-//    when it's installed (brew install cloudflared). Much faster:
-//    measured from Sydney, a page took about 0.1s through it against
-//    1.3s through localtunnel, and a full page with its images about
-//    0.3s against 11s, with localtunnel dropping most of the images.
-//    It's a separate program the developer installs, not an npm
-//    dependency, so nothing extra ships in this package.
-// 2. localtunnel, the fallback when cloudflared isn't installed or won't
-//    start.
+// There is deliberately no fallback. localtunnel was one until 0.14.0,
+// and was dropped: it was slow (measured from Sydney, about 1.3s a page
+// against 0.1s, and 11s for a page with its images against 0.3s), it
+// dropped most images, and its "click to continue" reminder page broke
+// the admin's preview for anyone who hadn't clicked through it. A
+// tunnel that looks open but shows a broken page is worse than a clear
+// message saying what to install.
 //
-// localtunnel pulls in an old axios version with known high-severity
-// advisories (SSRF/prototype-pollution class issues, see `npm audit`).
-// Accepted, not ignored: this is an opt-in, dev-only feature (never on
-// the request-handling path), and axios here only ever talks to the
-// hardcoded localtunnel.me registration endpoint, never
-// attacker-controlled input.
-//
-// Either way a dropped tunnel is reported and reopened rather than
-// failing silently (an unnoticed drop otherwise shows up in the admin
-// only as a 503 or a page that never loads).
-
-export type DevTunnelProvider = 'cloudflared' | 'localtunnel';
+// A dropped tunnel is reported and reopened rather than failing
+// silently (an unnoticed drop otherwise shows up in the admin only as a
+// page that never loads).
 
 export interface DevTunnel {
-  // The current public address: reopening a dropped tunnel can change it.
+  // The current public address: reopening a dropped tunnel changes it.
   readonly url: string;
-  readonly provider?: DevTunnelProvider;
   close: () => void;
 }
 
-// The parts of a localtunnel Tunnel this module uses.
-export interface LocaltunnelLike {
-  url: string;
-  on(event: 'error', listener: (error: Error) => void): unknown;
-  on(event: 'close', listener: () => void): unknown;
-  close(): void;
-}
+// What happens to a tunnel after it opens (and on the way), for whoever
+// started it to show.
+export type DevTunnelEvent =
+  | { kind: 'retrying'; attempt: number; attempts: number; reason: string }
+  | { kind: 'dns-slow'; url: string }
+  | { kind: 'dropped' }
+  | { kind: 'reopened'; url: string; changed: boolean }
+  | { kind: 'reopen-failed'; attempt: number; attempts: number; reason: string }
+  | { kind: 'gave-up' };
 
 export interface DevTunnelDeps {
   spawnCloudflared?: (args: string[]) => ChildProcess;
-  openLocaltunnel?: (options: { port: number; subdomain?: string }) => Promise<LocaltunnelLike>;
-  log?: (line: string) => void;
-  warn?: (line: string) => void;
+  report?: (event: DevTunnelEvent) => void;
   // Resolves once the new address can be looked up. Defaults to asking
   // public DNS until it can.
   waitForDns?: (hostname: string, signal: AbortSignal) => Promise<void>;
-  // How long to wait for cloudflared to be ready.
+  // How long to wait for cloudflared to connect.
   startTimeoutMs?: number;
+  // How long to wait, once connected, for the address to be in DNS
+  // before giving it out anyway.
+  dnsTimeoutMs?: number;
+  // Tries at opening it before giving up, and the pause between them.
+  startAttempts?: number;
+  retryDelayMs?: number;
   // Pause before reopening a dropped tunnel.
   reopenDelayMs?: number;
   // Give up after this many reopen attempts in a row fail.
   maxReopenAttempts?: number;
-  // Called when a reopened tunnel has a new address. Without it, a
-  // reminder to update the website's address in the admin is printed.
-  onAddressChange?: (url: string) => void;
 }
 
 const QUICK_TUNNEL_URL = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
@@ -67,18 +61,34 @@ const CONNECTION_REGISTERED = /Registered tunnel connection/;
 export class CloudflaredNotInstalledError extends Error {
   constructor() {
     super('cloudflared is not installed');
+    this.name = 'CloudflaredNotInstalledError';
   }
+}
+
+// How to install cloudflared on the computer this runs on.
+export function cloudflaredInstallCommand(platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'darwin') {
+    return 'brew install cloudflared';
+  }
+  if (platform === 'win32') {
+    return 'winget install --id Cloudflare.cloudflared';
+  }
+  return 'see https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/';
 }
 
 function defaultSpawnCloudflared(args: string[]): ChildProcess {
   return spawn('cloudflared', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // cloudflared prints its new address a few seconds before that name
 // exists in DNS. Looking it up too early (opening it in a browser, or
 // fetching it) gets "not found", which the computer then remembers for a
 // while, so the tunnel looks broken. Asking public DNS directly until the
-// name exists, before printing it, avoids that.
+// name exists, before giving it out, avoids that.
 async function defaultWaitForDns(hostname: string, signal: AbortSignal): Promise<void> {
   const resolver = new Resolver({ timeout: 2_000, tries: 1 });
   resolver.setServers(['1.1.1.1', '8.8.8.8']);
@@ -92,45 +102,62 @@ async function defaultWaitForDns(hostname: string, signal: AbortSignal): Promise
   }
 }
 
-function defaultOpenLocaltunnel(options: { port: number; subdomain?: string }): Promise<LocaltunnelLike> {
-  return localtunnel(options);
+function defaultReport(event: DevTunnelEvent): void {
+  switch (event.kind) {
+    case 'retrying':
+      console.warn(`Couldn't open the tunnel (${event.reason}). Trying again (${event.attempt} of ${event.attempts})...`);
+      break;
+    case 'dns-slow':
+      console.warn('The tunnel is open, but its address is slow to appear in DNS, so it may take a minute to load.');
+      break;
+    case 'dropped':
+      console.warn('The tunnel dropped. Reopening it...');
+      break;
+    case 'reopened':
+      console.log(event.changed ? `Tunnel open again, at a new address: ${event.url}` : `Tunnel open again: ${event.url}`);
+      break;
+    case 'reopen-failed':
+      console.warn(`Couldn't reopen the tunnel (attempt ${event.attempt} of ${event.attempts}): ${event.reason}`);
+      break;
+    case 'gave-up':
+      console.warn('Gave up reopening the tunnel. The site is still running locally; restart it to try again.');
+      break;
+  }
 }
 
 interface Settings {
   spawnCloudflared: (args: string[]) => ChildProcess;
-  openLocaltunnel: (options: { port: number; subdomain?: string }) => Promise<LocaltunnelLike>;
-  log: (line: string) => void;
-  warn: (line: string) => void;
+  report: (event: DevTunnelEvent) => void;
   waitForDns: (hostname: string, signal: AbortSignal) => Promise<void>;
   startTimeoutMs: number;
+  dnsTimeoutMs: number;
+  startAttempts: number;
+  retryDelayMs: number;
   reopenDelayMs: number;
   maxReopenAttempts: number;
-  onAddressChange: ((url: string) => void) | undefined;
 }
 
 function settingsFrom(deps: DevTunnelDeps): Settings {
   return {
     spawnCloudflared: deps.spawnCloudflared ?? defaultSpawnCloudflared,
-    openLocaltunnel: deps.openLocaltunnel ?? defaultOpenLocaltunnel,
-    log: deps.log ?? ((line) => console.log(line)),
-    warn: deps.warn ?? ((line) => console.warn(line)),
+    report: deps.report ?? defaultReport,
     waitForDns: deps.waitForDns ?? defaultWaitForDns,
     startTimeoutMs: deps.startTimeoutMs ?? 30_000,
+    dnsTimeoutMs: deps.dnsTimeoutMs ?? 20_000,
+    startAttempts: deps.startAttempts ?? 3,
+    retryDelayMs: deps.retryDelayMs ?? 3_000,
     reopenDelayMs: deps.reopenDelayMs ?? 2_000,
     maxReopenAttempts: deps.maxReopenAttempts ?? 5,
-    onAddressChange: deps.onAddressChange,
   };
 }
 
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
 // Starts one cloudflared quick tunnel and resolves with its address once
 // it's ready: cloudflared has printed the address and registered its
-// connection, and the name is in DNS. onExit fires if the process ends
-// after that.
-function runCloudflared(
-  port: number,
-  settings: Settings,
-  onExit: () => void,
-): Promise<{ url: string; stop: () => void }> {
+// connection, and the name is in DNS (or dnsTimeoutMs has passed).
+// onExit fires if the process ends after that.
+function runCloudflared(port: number, settings: Settings, onExit: () => void): Promise<{ url: string; stop: () => void }> {
   return new Promise((resolve, reject) => {
     let child: ChildProcess;
     try {
@@ -148,7 +175,7 @@ function runCloudflared(
     const dnsWait = new AbortController();
 
     const timer = setTimeout(() => {
-      fail(new Error(`cloudflared's tunnel wasn't ready within ${Math.round(settings.startTimeoutMs / 1000)} seconds`));
+      fail(new Error(`it didn't connect within ${Math.round(settings.startTimeoutMs / 1000)} seconds`));
     }, settings.startTimeoutMs);
 
     function fail(error: Error): void {
@@ -189,9 +216,22 @@ function runCloudflared(
       if (url && CONNECTION_REGISTERED.test(output)) {
         registered = true;
         const readyUrl = url;
+        // Connected, so it works: a slow DNS answer is no reason to give
+        // up on it, only to say it may take a moment.
+        const dnsTimer = setTimeout(() => {
+          dnsWait.abort();
+          settings.report({ kind: 'dns-slow', url: readyUrl });
+          ready(readyUrl);
+        }, settings.dnsTimeoutMs);
         settings.waitForDns(new URL(readyUrl).hostname, dnsWait.signal).then(
-          () => ready(readyUrl),
-          (error: unknown) => fail(error instanceof Error ? error : new Error(String(error))),
+          () => {
+            clearTimeout(dnsTimer);
+            ready(readyUrl);
+          },
+          (error: unknown) => {
+            clearTimeout(dnsTimer);
+            fail(error instanceof Error ? error : new Error(String(error)));
+          },
         );
       }
     }
@@ -204,8 +244,13 @@ function runCloudflared(
 
     child.on('exit', (code) => {
       if (!started) {
-        const lastLine = output.trim().split('\n').at(-1) ?? '';
-        fail(new Error(`cloudflared stopped before opening a tunnel (exit code ${code ?? 'none'})${lastLine ? `: ${lastLine}` : ''}`));
+        const lastLine =
+          output
+            .trim()
+            .split('\n')
+            .at(-1)
+            ?.replace(/^\S+\s+(INF|ERR|WRN)\s+/, '') ?? '';
+        fail(new Error(`cloudflared stopped (exit code ${code ?? 'none'})${lastLine ? `: ${lastLine}` : ''}`));
         return;
       }
       if (!stopping) {
@@ -215,58 +260,45 @@ function runCloudflared(
   });
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Opens a tunnel through `open`, then reopens it whenever it drops
-// (reported through the `dropped` callback open receives), until close().
-async function keepOpen(
-  provider: DevTunnelProvider,
-  open: (dropped: () => void) => Promise<{ url: string; stop: () => void }>,
-  settings: Settings,
-): Promise<DevTunnel> {
+export async function startDevTunnel(port: number, deps: DevTunnelDeps = {}): Promise<DevTunnel> {
+  const settings = settingsFrom(deps);
   let closed = false;
   let reopening = false;
-  let current: { url: string; stop: () => void };
+  let current: { url: string; stop: () => void } | undefined;
+
+  const open = (): Promise<{ url: string; stop: () => void }> => runCloudflared(port, settings, dropped);
 
   async function reopen(): Promise<void> {
-    if (closed || reopening) {
+    if (closed || reopening || !current) {
       return;
     }
     reopening = true;
     const previousUrl = current.url;
-    settings.warn('The tunnel dropped. Reopening it...');
+    settings.report({ kind: 'dropped' });
     for (let attempt = 1; attempt <= settings.maxReopenAttempts && !closed; attempt++) {
       await delay(settings.reopenDelayMs * attempt);
       if (closed) {
         break;
       }
       try {
-        current = await open(dropped);
+        current = await open();
         reopening = false;
         if (closed) {
           current.stop();
           return;
         }
-        if (current.url === previousUrl) {
-          settings.log(`Tunnel open again: ${current.url}`);
-        } else {
-          settings.log(`Tunnel open again, at a new address: ${current.url}`);
-          if (settings.onAddressChange) {
-            settings.onAddressChange(current.url);
-          } else {
-            settings.warn("The address has changed, so update this website's address in the admin (Settings) to the new one.");
-          }
-        }
+        settings.report({ kind: 'reopened', url: current.url, changed: current.url !== previousUrl });
         return;
       } catch (error) {
-        settings.warn(`Couldn't reopen the tunnel (attempt ${attempt} of ${settings.maxReopenAttempts}): ${error instanceof Error ? error.message : String(error)}`);
+        if (error instanceof CloudflaredNotInstalledError) {
+          break;
+        }
+        settings.report({ kind: 'reopen-failed', attempt, attempts: settings.maxReopenAttempts, reason: messageOf(error) });
       }
     }
     reopening = false;
     if (!closed) {
-      settings.warn('Gave up reopening the tunnel. The site is still running locally; restart it to try again.');
+      settings.report({ kind: 'gave-up' });
     }
   }
 
@@ -274,66 +306,30 @@ async function keepOpen(
     void reopen();
   }
 
-  current = await open(dropped);
-  return {
-    get url() {
-      return current.url;
-    },
-    provider,
-    close: () => {
-      closed = true;
-      current.stop();
-    },
-  };
-}
-
-async function startCloudflaredTunnel(port: number, settings: Settings): Promise<DevTunnel> {
-  return keepOpen('cloudflared', (dropped) => runCloudflared(port, settings, dropped), settings);
-}
-
-async function startLocaltunnel(port: number, settings: Settings): Promise<DevTunnel> {
-  let subdomain: string | undefined;
-  return keepOpen(
-    'localtunnel',
-    async (dropped) => {
-      // Asking for the same subdomain again keeps the address the same
-      // after a drop, whenever localtunnel still has it free.
-      const tunnel = await settings.openLocaltunnel(subdomain ? { port, subdomain } : { port });
-      subdomain = new URL(tunnel.url).hostname.split('.')[0];
-      let stopping = false;
-      let reported = false;
-      const report = (): void => {
-        if (!stopping && !reported) {
-          reported = true;
-          dropped();
-        }
-      };
-      // Without an error listener, a dropped localtunnel connection
-      // throws and takes the whole site down with it.
-      tunnel.on('error', report);
-      tunnel.on('close', report);
-      return {
-        url: tunnel.url,
-        stop: () => {
-          stopping = true;
-          tunnel.close();
-        },
-      };
-    },
-    settings,
-  );
-}
-
-export async function startDevTunnel(port: number, deps: DevTunnelDeps = {}): Promise<DevTunnel> {
-  const settings = settingsFrom(deps);
-  try {
-    return await startCloudflaredTunnel(port, settings);
-  } catch (error) {
-    if (error instanceof CloudflaredNotInstalledError) {
-      settings.log('Using localtunnel, which is slow. For a much faster tunnel, install cloudflared (on a Mac: brew install cloudflared) and start again.');
-    } else {
-      settings.warn(`Couldn't open a Cloudflare tunnel (${error instanceof Error ? error.message : String(error)}), so using localtunnel instead.`);
+  // Opening: a quick tunnel occasionally isn't handed out at the first
+  // ask, so a couple more tries before giving up. Not installed is never
+  // worth retrying.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      current = await open();
+      break;
+    } catch (error) {
+      if (error instanceof CloudflaredNotInstalledError || attempt >= settings.startAttempts) {
+        throw error;
+      }
+      settings.report({ kind: 'retrying', attempt: attempt + 1, attempts: settings.startAttempts, reason: messageOf(error) });
+      await delay(settings.retryDelayMs);
     }
   }
-  return startLocaltunnel(port, settings);
+
+  const opened = current;
+  return {
+    get url() {
+      return (current ?? opened).url;
+    },
+    close: () => {
+      closed = true;
+      (current ?? opened).stop();
+    },
+  };
 }

@@ -3,6 +3,8 @@
 // in CMS_TOKEN=... before it) ends up in shell history; typed here, it
 // goes nowhere but this process.
 
+import { createUi } from '../terminal/ui.ts';
+
 export interface PromptInput {
   isTTY?: boolean;
   setRawMode?: (mode: boolean) => unknown;
@@ -165,6 +167,8 @@ export function createPrompter(input: PromptInput, output: PromptOutput): Prompt
     }
 
     const width = Math.max(...state.map((choice) => choice.label.length));
+    // Only ever drawn at a terminal, so colour (unless NO_COLOR) is safe.
+    const look = createUi(output, { interactive: true });
     let cursor = Math.max(0, state.findIndex((choice) => !choice.disabled));
     let drawn = 0;
 
@@ -173,16 +177,17 @@ export function createPrompter(input: PromptInput, output: PromptOutput): Prompt
         output.write(`\u001b[${drawn}A`);
       }
       const lines = state.map((choice, index) => {
-        const pointer = index === cursor ? '>' : ' ';
-        const box = choice.disabled ? '[-]' : choice.checked ? '[x]' : '[ ]';
-        const detail = choice.detail ? `  (${choice.detail})` : '';
-        return `\u001b[2K${pointer} ${box} ${choice.label.padEnd(width)}${detail}\n`;
+        const pointer = index === cursor ? look.style('❯', 'cyan') : ' ';
+        const box = choice.disabled ? look.style('◌', 'dim') : choice.checked ? look.style('◉', 'green') : '◯';
+        const label = choice.disabled ? look.style(choice.label.padEnd(width), 'dim') : index === cursor ? look.style(choice.label.padEnd(width), 'bold') : choice.label.padEnd(width);
+        const detail = choice.detail ? look.style(`  ${choice.detail}`, 'dim') : '';
+        return `\u001b[2K ${pointer} ${box} ${label}${detail}\n`;
       });
       output.write(lines.join(''));
       drawn = lines.length;
     }
 
-    output.write(`${question}\n  (up/down to move, space to tick, Enter to go)\n`);
+    output.write(` ${look.style('?', 'cyan', 'bold')} ${look.style(question, 'bold')}\n   ${look.style('↑/↓ to move, space to tick, Enter to go', 'dim')}\n`);
     input.setRawMode?.(true);
     output.write('\u001b[?25l');
     draw();

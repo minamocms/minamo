@@ -13,6 +13,8 @@ import { sitemapRoutes } from './routes/sitemap.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
 import type { DevTunnel } from './services/dev-tunnel.ts';
 import { startDevTunnel, type DevTunnelDeps } from './services/dev-tunnel.ts';
+import { createSiteConsole, type SiteConsoleStreams } from './terminal/site-console.ts';
+import { readAgentVersion } from './routes/capabilities.ts';
 import { createLocalEditKey, localEditLink } from './services/local-edit-link.ts';
 import { startIntervalJob } from './services/interval-job.ts';
 import { reindexOnBootIfMissing } from './services/reindex-on-write.ts';
@@ -26,7 +28,10 @@ export interface StartServerOptions extends BuildServerOptions {
   tunnel?: boolean;
   // Injectable so tests can exercise the failure path without a real
   // network call - defaults to the real startDevTunnel.
-  startTunnel?: (port: number, deps?: Pick<DevTunnelDeps, 'onAddressChange'>) => Promise<DevTunnel>;
+  startTunnel?: (port: number, deps?: Pick<DevTunnelDeps, 'report'>) => Promise<DevTunnel>;
+  // Where the terminal output goes (terminal/site-console.ts): tests
+  // capture it here. Defaults to the process's own.
+  output?: SiteConsoleStreams;
 }
 
 // Never wrap v1Routes (or any route-group plugin it registers) with
@@ -161,6 +166,8 @@ export async function startServer(
     serverConfig.tokens = [...serverConfig.tokens, localEdit.token];
   }
   const app = buildServer(booted, serverConfig, options);
+  const terminal = createSiteConsole(options.output);
+  terminal.starting(siteRoot, readAgentVersion());
 
   // Previously these three failure cases (missing/invalid {% schema %}
   // block, or a required property with no valid default) were
@@ -169,7 +176,7 @@ export async function startServer(
   // from "you have a typo". Never a boot failure (loadThemeSchemas's
   // own contract), just no longer silent about it either.
   for (const warning of booted.themeSchemas.warnings ?? []) {
-    console.warn(warning);
+    terminal.themeWarning(warning);
   }
 
   const doCheckpoint = () => runCheckpoint(booted.config, CHECKPOINT_AUTHOR);
@@ -194,6 +201,7 @@ export async function startServer(
   process.once('SIGINT', shutdown);
 
   app.addHook('onClose', async () => {
+    terminal.stopping();
     tunnel?.close();
     scheduler.stop();
     process.removeListener('SIGTERM', shutdown);
@@ -222,14 +230,10 @@ export async function startServer(
       // terminal - say so, and how to stop it from this one.
       const running = readPidFile(booted.config);
       if (running && running.port === serverConfig.port && running.pid !== process.pid && isProcessAlive(running.pid)) {
-        console.error(`This site is already running on port ${serverConfig.port} (process ${running.pid}).`);
-        console.error('Stop it with "npm run stop" from vhost/, then start it again.');
+        terminal.portInUse(serverConfig.port, running.pid);
         process.exit(1);
       }
-      console.error(`Port ${serverConfig.port} is already in use.`);
-      console.error(
-        `Set a different port with the PORT environment variable (e.g. PORT=3001 node server.js), or "port" in vhost/site.config.json.`,
-      );
+      terminal.portInUse(serverConfig.port);
       process.exit(1);
     }
     throw error;
@@ -242,8 +246,9 @@ export async function startServer(
   // not the 0.0.0.0 bind host above - that's what's actually
   // reachable and clickable from the machine running this.
   const address = app.server.address();
+  const localUrl = `http://127.0.0.1:${address !== null && typeof address !== 'string' ? address.port : serverConfig.port}`;
   if (address !== null && typeof address !== 'string') {
-    console.log(`Site running at http://127.0.0.1:${address.port}`);
+    terminal.running(localUrl);
     // Recorded only once the port is really bound, so a start that
     // fails never leaves a record of a site that isn't running.
     writePidFile(booted.config, address.port);
@@ -257,36 +262,48 @@ export async function startServer(
   // itself fails to come up.
   reindexOnBootIfMissing(booted.config);
 
+  let editLink: string | undefined;
   if (options.tunnel) {
+    // The real bound port, for the same reason as the message above.
+    const tunnelPort = address !== null && typeof address !== 'string' ? address.port : serverConfig.port;
+    const adminBaseUrl = serverConfig.adminBaseUrl;
+    const linkFor = (url: string): string | undefined =>
+      localEdit && adminBaseUrl ? localEditLink(adminBaseUrl, url, localEdit.key) : undefined;
+    let opened = false;
+    const opening = terminal.openingTunnel();
     try {
-      // The real bound port, for the same reason as the message above.
-      const tunnelPort = address !== null && typeof address !== 'string' ? address.port : serverConfig.port;
-      const adminBaseUrl = serverConfig.adminBaseUrl;
-      const printEditLink = (url: string): void => {
-        if (localEdit && adminBaseUrl) {
-          console.log(`Edit in Minamo: ${localEditLink(adminBaseUrl, url, localEdit.key)}`);
-        }
-      };
-      tunnel = await (options.startTunnel ?? startDevTunnel)(
-        tunnelPort,
-        localEdit ? { onAddressChange: (url) => printEditLink(url) } : {},
-      );
-      const through = tunnel.provider === 'cloudflared' ? ' (Cloudflare)' : tunnel.provider === 'localtunnel' ? ' (localtunnel)' : '';
-      console.log(`Tunnel open${through}: ${tunnel.url}`);
-      printEditLink(tunnel.url);
-      console.log('This URL is publicly reachable for as long as this process runs - anyone with it (and a valid access token) can reach this site. Do not leave it running unattended.');
-      if (localEdit) {
-        console.log('The Edit in Minamo link contains a key to this site that works until it stops. Share it only with someone you want editing it.');
+      tunnel = await (options.startTunnel ?? startDevTunnel)(tunnelPort, {
+        report: (event) => {
+          if (!opened) {
+            opening.event(event);
+            return;
+          }
+          terminal.tunnelEvent(event);
+          // A new address means a new link (with the same key).
+          if (event.kind === 'reopened' && event.changed) {
+            editLink = linkFor(event.url);
+            if (editLink) {
+              terminal.editLink(editLink, true);
+            }
+          }
+        },
+      });
+      opened = true;
+      opening.opened(tunnel.url);
+      editLink = linkFor(tunnel.url);
+      if (editLink) {
+        terminal.editLink(editLink);
       }
     } catch (error) {
       // The site itself is already up and correctly serving locally -
       // a failed tunnel is not a reason to fail the whole boot.
-      app.log.error(error, 'failed to start dev tunnel');
-      console.error('Failed to start the dev tunnel - the site is still running locally.');
+      opening.failed(error);
     }
   } else {
-    console.log('Tip: run with --tunnel to expose this site publicly for testing against a hosted admin.');
+    terminal.tunnelHint();
   }
+
+  terminal.listen({ localUrl, editLink: () => editLink });
 
   return app;
 }

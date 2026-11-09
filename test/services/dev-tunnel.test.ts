@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
-import { startDevTunnel, type DevTunnelDeps, type LocaltunnelLike } from '../../src/services/dev-tunnel.ts';
+import {
+  cloudflaredInstallCommand,
+  CloudflaredNotInstalledError,
+  startDevTunnel,
+  type DevTunnelDeps,
+  type DevTunnelEvent,
+} from '../../src/services/dev-tunnel.ts';
 
 // A stand-in for a cloudflared process: say() writes to its stderr, the
 // way cloudflared reports its address; crash() ends it unexpectedly.
@@ -35,19 +41,6 @@ class FakeCloudflared extends EventEmitter {
   }
 }
 
-class FakeLocaltunnel extends EventEmitter implements LocaltunnelLike {
-  closed = false;
-  readonly url: string;
-  constructor(url: string) {
-    super();
-    this.url = url;
-  }
-  close(): void {
-    this.closed = true;
-    this.emit('close');
-  }
-}
-
 function notInstalled(): ChildProcess {
   const error = Object.assign(new Error('spawn cloudflared ENOENT'), { code: 'ENOENT' });
   const child = new FakeCloudflared([]);
@@ -55,8 +48,9 @@ function notInstalled(): ChildProcess {
   return child as unknown as ChildProcess;
 }
 
-function quiet(lines: string[] = []): Pick<DevTunnelDeps, 'log' | 'warn' | 'waitForDns'> {
-  return { log: (line) => lines.push(line), warn: (line) => lines.push(line), waitForDns: async () => {} };
+// Fast settings, and the events kept.
+function deps(events: DevTunnelEvent[] = []): Pick<DevTunnelDeps, 'report' | 'waitForDns' | 'retryDelayMs' | 'reopenDelayMs'> {
+  return { report: (event) => events.push(event), waitForDns: async () => {}, retryDelayMs: 1, reopenDelayMs: 1 };
 }
 
 const until = async (check: () => boolean): Promise<void> => {
@@ -66,166 +60,108 @@ const until = async (check: () => boolean): Promise<void> => {
   assert.ok(check(), 'condition never became true');
 };
 
-test('uses a Cloudflare quick tunnel to the local site when cloudflared is installed', async () => {
+test('opens a Cloudflare quick tunnel to the local site', async () => {
   const spawned: FakeCloudflared[] = [];
-  const pending = startDevTunnel(3123, {
-    ...quiet(),
+  const tunnel = await startDevTunnel(3123, {
+    ...deps(),
     spawnCloudflared: (args) => {
       const child = new FakeCloudflared(args);
       spawned.push(child);
       setImmediate(() => child.open('https://serum-inline-stand-bug.trycloudflare.com'));
       return child as unknown as ChildProcess;
     },
-    openLocaltunnel: () => assert.fail('localtunnel must not be used when cloudflared works'),
   });
-  const tunnel = await pending;
   assert.equal(tunnel.url, 'https://serum-inline-stand-bug.trycloudflare.com');
-  assert.equal(tunnel.provider, 'cloudflared');
   assert.deepEqual(spawned[0]?.args, ['tunnel', '--no-autoupdate', '--url', 'http://127.0.0.1:3123']);
   tunnel.close();
   assert.equal(spawned[0]?.killed, true, 'closing the tunnel must stop cloudflared');
 });
 
-test('falls back to localtunnel, with a hint to install cloudflared, when cloudflared is not installed', async () => {
-  const lines: string[] = [];
-  const opened: FakeLocaltunnel[] = [];
-  const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
-    spawnCloudflared: notInstalled,
-    openLocaltunnel: async () => {
-      const lt = new FakeLocaltunnel('https://red-papers-lick.loca.lt');
-      opened.push(lt);
-      return lt;
-    },
-  });
-  assert.equal(tunnel.url, 'https://red-papers-lick.loca.lt');
-  assert.equal(tunnel.provider, 'localtunnel');
-  assert.ok(lines.some((line) => line.includes('brew install cloudflared')));
-  tunnel.close();
-  assert.equal(opened[0]?.closed, true);
+test('fails straight away, without retrying, when cloudflared is not installed', async () => {
+  const events: DevTunnelEvent[] = [];
+  let spawns = 0;
+  await assert.rejects(
+    () =>
+      startDevTunnel(3123, {
+        ...deps(events),
+        spawnCloudflared: () => {
+          spawns++;
+          return notInstalled();
+        },
+      }),
+    CloudflaredNotInstalledError,
+  );
+  assert.equal(spawns, 1);
+  assert.deepEqual(events, []);
 });
 
-test('falls back to localtunnel when cloudflared exits before opening a tunnel', async () => {
-  const lines: string[] = [];
+test('the install command suits the computer', () => {
+  assert.equal(cloudflaredInstallCommand('darwin'), 'brew install cloudflared');
+  assert.match(cloudflaredInstallCommand('win32'), /^winget install/);
+  assert.match(cloudflaredInstallCommand('linux'), /developers\.cloudflare\.com/);
+});
+
+test('tries again when cloudflared stops before opening a tunnel, and succeeds', async () => {
+  const events: DevTunnelEvent[] = [];
+  let spawns = 0;
   const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
+    ...deps(events),
     spawnCloudflared: (args) => {
+      spawns++;
       const child = new FakeCloudflared(args);
       setImmediate(() => {
-        child.say('ERR failed to request quick Tunnel\n');
-        child.crash(1);
+        if (spawns === 1) {
+          child.say('2026-11-09T00:00:00Z ERR failed to request quick Tunnel: 429 Too Many Requests\n');
+          child.crash(1);
+        } else {
+          child.open('https://second-try.trycloudflare.com');
+        }
       });
       return child as unknown as ChildProcess;
     },
-    openLocaltunnel: async () => new FakeLocaltunnel('https://red-papers-lick.loca.lt'),
   });
-  assert.equal(tunnel.provider, 'localtunnel');
-  assert.ok(lines.some((line) => line.includes("Couldn't open a Cloudflare tunnel") && line.includes('failed to request quick Tunnel')));
+  assert.equal(tunnel.url, 'https://second-try.trycloudflare.com');
+  assert.equal(events[0]?.kind, 'retrying');
+  assert.match((events[0] as { reason: string }).reason, /429 Too Many Requests/);
   tunnel.close();
 });
 
-test('falls back to localtunnel when cloudflared never reports an address', async () => {
+test('gives up after three tries, with the last reason', async () => {
+  let spawns = 0;
+  await assert.rejects(
+    () =>
+      startDevTunnel(3123, {
+        ...deps(),
+        spawnCloudflared: (args) => {
+          spawns++;
+          const child = new FakeCloudflared(args);
+          setImmediate(() => child.crash(1));
+          return child as unknown as ChildProcess;
+        },
+      }),
+    /cloudflared stopped \(exit code 1\)/,
+  );
+  assert.equal(spawns, 3);
+});
+
+test('a cloudflared that never connects is stopped and tried again', async () => {
   const spawned: FakeCloudflared[] = [];
-  const tunnel = await startDevTunnel(3123, {
-    ...quiet(),
-    startTimeoutMs: 20,
-    spawnCloudflared: (args) => {
-      const child = new FakeCloudflared(args);
-      spawned.push(child);
-      return child as unknown as ChildProcess;
-    },
-    openLocaltunnel: async () => new FakeLocaltunnel('https://red-papers-lick.loca.lt'),
-  });
-  assert.equal(tunnel.provider, 'localtunnel');
-  assert.equal(spawned[0]?.killed, true, 'a cloudflared that never started must not be left running');
-  tunnel.close();
-});
-
-test('reopens a Cloudflare tunnel that stops unexpectedly and says the address changed', async () => {
-  const lines: string[] = [];
-  const spawned: FakeCloudflared[] = [];
-  const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
-    reopenDelayMs: 1,
-    spawnCloudflared: (args) => {
-      const child = new FakeCloudflared(args);
-      const n = spawned.push(child);
-      setImmediate(() => child.open(`https://tunnel-number-${n}.trycloudflare.com`));
-      return child as unknown as ChildProcess;
-    },
-  });
-  assert.equal(tunnel.url, 'https://tunnel-number-1.trycloudflare.com');
-  spawned[0]?.crash();
-  await until(() => tunnel.url === 'https://tunnel-number-2.trycloudflare.com');
-  assert.ok(lines.some((line) => line.includes('The tunnel dropped')));
-  assert.ok(lines.some((line) => line.includes('new address') && line.includes('tunnel-number-2')));
-  assert.ok(lines.some((line) => line.includes('update this website') && line.includes('admin')));
-  tunnel.close();
-  assert.equal(spawned[1]?.killed, true, 'closing must stop the reopened cloudflared');
-});
-
-test('reopens a dropped localtunnel, asking for the same address back', async () => {
-  const lines: string[] = [];
-  const requests: { port: number; subdomain?: string }[] = [];
-  const opened: FakeLocaltunnel[] = [];
-  const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
-    reopenDelayMs: 1,
-    spawnCloudflared: notInstalled,
-    openLocaltunnel: async (options) => {
-      requests.push(options);
-      const lt = new FakeLocaltunnel(`https://${options.subdomain ?? 'red-papers-lick'}.loca.lt`);
-      opened.push(lt);
-      return lt;
-    },
-  });
-  opened[0]?.emit('error', new Error('connection refused: localtunnel.me:12345'));
-  await until(() => opened.length === 2);
-  assert.deepEqual(requests[1], { port: 3123, subdomain: 'red-papers-lick' });
-  await until(() => lines.some((line) => line.startsWith('Tunnel open again: https://red-papers-lick.loca.lt')));
-  tunnel.close();
-  assert.equal(opened[1]?.closed, true);
-});
-
-test('closing the tunnel on shutdown is never reported as a drop', async () => {
-  const lines: string[] = [];
-  let spawnCount = 0;
-  const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
-    reopenDelayMs: 1,
-    spawnCloudflared: (args) => {
-      spawnCount++;
-      const child = new FakeCloudflared(args);
-      setImmediate(() => child.open('https://only-one.trycloudflare.com'));
-      return child as unknown as ChildProcess;
-    },
-  });
-  tunnel.close();
-  await new Promise((resolve) => setTimeout(resolve, 30));
-  assert.equal(spawnCount, 1);
-  assert.ok(!lines.some((line) => line.includes('dropped')));
-});
-
-test('gives up, saying so, after the reopen attempts run out', async () => {
-  const lines: string[] = [];
-  let spawnCount = 0;
-  const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
-    reopenDelayMs: 1,
-    maxReopenAttempts: 2,
-    spawnCloudflared: (args) => {
-      spawnCount++;
-      const child = new FakeCloudflared(args);
-      setImmediate(() => (spawnCount === 1 ? child.open('https://first.trycloudflare.com') : child.crash(1)));
-      if (spawnCount === 1) {
-        setTimeout(() => child.crash(1), 5);
-      }
-      return child as unknown as ChildProcess;
-    },
-  });
-  await until(() => lines.some((line) => line.includes('Gave up reopening the tunnel')));
-  assert.equal(spawnCount, 3, 'one original start plus two reopen attempts');
-  tunnel.close();
+  await assert.rejects(
+    () =>
+      startDevTunnel(3123, {
+        ...deps(),
+        startTimeoutMs: 10,
+        startAttempts: 2,
+        spawnCloudflared: (args) => {
+          const child = new FakeCloudflared(args);
+          spawned.push(child);
+          return child as unknown as ChildProcess;
+        },
+      }),
+    /didn't connect within/,
+  );
+  assert.equal(spawned.length, 2);
+  assert.ok(spawned.every((child) => child.killed), 'a cloudflared that never started must not be left running');
 });
 
 test('waits for the connection to register and the name to be in DNS before giving out the address', async () => {
@@ -234,7 +170,7 @@ test('waits for the connection to register and the name to be in DNS before givi
   let dnsReady: () => void = () => {};
   let settled = false;
   const pending = startDevTunnel(3123, {
-    ...quiet(),
+    ...deps(),
     waitForDns: (hostname) => {
       dnsLookups.push(hostname);
       return new Promise((resolve) => {
@@ -264,24 +200,85 @@ test('waits for the connection to register and the name to be in DNS before givi
   tunnel.close();
 });
 
-test('a new address after reopening goes to onAddressChange instead of the update-in-Settings reminder', async () => {
-  const lines: string[] = [];
-  const changes: string[] = [];
-  const spawned: FakeCloudflared[] = [];
+test('gives out the address anyway, saying so, when DNS is slow to have it', async () => {
+  const events: DevTunnelEvent[] = [];
   const tunnel = await startDevTunnel(3123, {
-    ...quiet(lines),
-    reopenDelayMs: 1,
-    onAddressChange: (url) => changes.push(url),
+    ...deps(events),
+    dnsTimeoutMs: 10,
+    waitForDns: () => new Promise(() => {}),
     spawnCloudflared: (args) => {
       const child = new FakeCloudflared(args);
-      const n = spawned.push(child);
-      setImmediate(() => child.open(`https://address-${n}.trycloudflare.com`));
+      setImmediate(() => child.open('https://slow-dns.trycloudflare.com'));
       return child as unknown as ChildProcess;
     },
   });
+  assert.equal(tunnel.url, 'https://slow-dns.trycloudflare.com');
+  assert.deepEqual(events, [{ kind: 'dns-slow', url: 'https://slow-dns.trycloudflare.com' }]);
+  tunnel.close();
+});
+
+test('reopens a tunnel that stops unexpectedly, reporting the new address', async () => {
+  const events: DevTunnelEvent[] = [];
+  const spawned: FakeCloudflared[] = [];
+  const tunnel = await startDevTunnel(3123, {
+    ...deps(events),
+    spawnCloudflared: (args) => {
+      const child = new FakeCloudflared(args);
+      const n = spawned.push(child);
+      setImmediate(() => child.open(`https://tunnel-number-${n}.trycloudflare.com`));
+      return child as unknown as ChildProcess;
+    },
+  });
+  assert.equal(tunnel.url, 'https://tunnel-number-1.trycloudflare.com');
   spawned[0]?.crash();
-  await until(() => changes.length === 1);
-  assert.deepEqual(changes, ['https://address-2.trycloudflare.com']);
-  assert.ok(!lines.some((line) => line.includes('update this website')));
+  await until(() => tunnel.url === 'https://tunnel-number-2.trycloudflare.com');
+  assert.deepEqual(events, [
+    { kind: 'dropped' },
+    { kind: 'reopened', url: 'https://tunnel-number-2.trycloudflare.com', changed: true },
+  ]);
+  tunnel.close();
+  assert.equal(spawned[1]?.killed, true, 'closing must stop the reopened cloudflared');
+});
+
+test('closing the tunnel on shutdown is never reported as a drop', async () => {
+  const events: DevTunnelEvent[] = [];
+  let spawnCount = 0;
+  const tunnel = await startDevTunnel(3123, {
+    ...deps(events),
+    spawnCloudflared: (args) => {
+      spawnCount++;
+      const child = new FakeCloudflared(args);
+      setImmediate(() => child.open('https://only-one.trycloudflare.com'));
+      return child as unknown as ChildProcess;
+    },
+  });
+  tunnel.close();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(spawnCount, 1);
+  assert.deepEqual(events, []);
+});
+
+test('gives up reopening, saying so, after the attempts run out', async () => {
+  const events: DevTunnelEvent[] = [];
+  let spawnCount = 0;
+  const tunnel = await startDevTunnel(3123, {
+    ...deps(events),
+    maxReopenAttempts: 2,
+    spawnCloudflared: (args) => {
+      spawnCount++;
+      const child = new FakeCloudflared(args);
+      setImmediate(() => (spawnCount === 1 ? child.open('https://first.trycloudflare.com') : child.crash(1)));
+      if (spawnCount === 1) {
+        setTimeout(() => child.crash(1), 5);
+      }
+      return child as unknown as ChildProcess;
+    },
+  });
+  await until(() => events.some((event) => event.kind === 'gave-up'));
+  assert.equal(spawnCount, 3, 'one original start plus two reopen attempts');
+  assert.deepEqual(
+    events.map((event) => event.kind),
+    ['dropped', 'reopen-failed', 'reopen-failed', 'gave-up'],
+  );
   tunnel.close();
 });

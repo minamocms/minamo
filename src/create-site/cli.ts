@@ -1,31 +1,38 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
 import { ScaffoldError, scaffoldSite } from './generate-site.ts';
+import { err, out } from '../terminal/ui.ts';
 
 const targetArg = process.argv[2];
 if (!targetArg) {
-  console.error('Usage: create-site <directory>');
+  err().error('No folder given.', `Usage: ${err().command('create-site <directory>')}`);
   process.exit(1);
 }
 
+const ui = out();
 try {
   const targetDir = resolve(process.cwd(), targetArg);
   const { raw } = scaffoldSite(targetDir);
-  console.log(`Created a new site at ${targetDir}`);
-  console.log('');
-  console.log('Your access token (save this now - it will not be shown again):');
-  console.log(`  ${raw}`);
-  console.log('');
-  console.log('Next steps:');
-  console.log(`  cd ${targetArg}/vhost`);
-  console.log('  npm install');
-  console.log('  npm start');
-  console.log('');
-  console.log('Want to edit this site from a hosted admin while developing locally?');
-  console.log('  npm run tunnel');
+  ui.header('minamo', 'create-site');
+  ui.success(`Created a new site at ${targetDir}`);
+  ui.blank();
+  ui.box(
+    ui.fancy ? 'Your access token' : 'Your access token (save this now - it will not be shown again):',
+    [
+      ...(ui.fancy ? ['Save this now. It will not be shown again.', ''] : []),
+      ui.fancy ? ui.style(raw, 'bold') : `  ${raw}`,
+    ],
+    'warn',
+  );
+  ui.blank();
+  ui.heading('Next steps:');
+  ui.list([ui.command(`cd ${targetArg}/vhost`), ui.command('npm install'), ui.command('npm start')], { bullet: ui.fancy ? ui.style('$', 'dim') : ' ' });
+  ui.blank();
+  ui.heading('Want to edit this site in Minamo while developing locally?');
+  ui.list([ui.command('npm run tunnel')], { bullet: ui.fancy ? ui.style('$', 'dim') : ' ' });
 } catch (error) {
   if (error instanceof ScaffoldError) {
-    console.error(error.message);
+    err().error(error.message);
     process.exit(1);
   }
   throw error;
