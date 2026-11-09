@@ -71,6 +71,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'site-sync/deploy.ts', // a standalone CLI reading fixed paths (vhost/deploy.json, fly.toml) in the operator's own site folder
   'upgrade/owned-files.ts', // a standalone CLI writing a fixed list of paths inside the operator's own site folder
   'upgrade/upgrade-cli.ts', // a standalone CLI operating on the operator's own site folder, not a web request's :path
+  'upgrade/security-fixes.ts', // reads the fixed vhost/package-lock.json of the operator's own site during npm run upgrade, never a web request's :path
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
   'search/query-content.ts', // checks the existence of the agent-configured searchIndexPath, not a request path

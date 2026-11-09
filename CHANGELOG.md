@@ -4,6 +4,13 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-09
+
+### Security
+
+- **`npm run upgrade` now applies security fixes to the CMS's own dependencies.** After installing the new version it runs `npm audit fix --omit=dev`, which changes only packages with a published advisory, and only within the versions already allowed (never forced, never a major version). Before, a site's `package-lock.json` could keep an older `fastify`, `fast-uri` or `@fastify/busboy` with known problems even after upgrading, since npm keeps a locked version for as long as it still fits.
+- **`fastify` 5.12.8 or later is now required**, for fixes to request validation, `X-Forwarded-*` handling behind a proxy, and malformed URLs reaching not-found handlers.
+
 ## [0.14.0] - 2026-11-09
 
 ### Changed

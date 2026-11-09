@@ -8,6 +8,7 @@ import { changesBetween, compareVersions, mayBreak } from './changelog.ts';
 import { finishUpgrade } from './finish.ts';
 import { PACKAGE_NAME, upgradedDependencies } from './package-names.ts';
 import { out } from '../terminal/ui.ts';
+import { applySecurityFixes } from './security-fixes.ts';
 
 const ui = out();
 
@@ -154,6 +155,13 @@ async function start(): Promise<void> {
     // npm's own output only if it fails: it explains why.
     execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhostDir, stdio: ['ignore', 'pipe', 'pipe'] });
     installing.succeed(`Installed ${PACKAGE_NAME}@${to}`);
+    const securing = ui.spinner("Applying security fixes to the CMS's dependencies");
+    const secured = applySecurityFixes(vhostDir);
+    if (secured === 'updated') {
+      securing.succeed("Applied security fixes to the CMS's dependencies");
+    } else {
+      securing.succeed('No security fixes needed');
+    }
   } catch (error) {
     installing.stop();
     const output = error && typeof error === 'object' && 'stderr' in error ? String(error.stderr) : '';
