@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-11-10
+
 ### Added
 
 - **`npm run mint-token`** adds an access token the same way on your computer and on a live server: from `vhost/`, with no site folder to give (`npm run mint-token -- --scopes content,theme` for fewer scopes). It runs the site's own installed copy, so there's no `npx -p @minamocms/framework` to remember, and no risk of a bare `npx mint-token` fetching an unrelated package of that name. `npm run upgrade` adds the script to existing sites.
