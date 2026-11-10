@@ -49,6 +49,19 @@ Agreed with the owner (2026-11-06): so that "your site's address with /admin on 
 | AJ2 | `"adminBaseUrl": false` turns the redirect off (`/admin` is an ordinary missing page); any other non-URL value, `true` included, fails at startup | `test/server-config.test.ts` ("AJ2: ..."), `test/routes/admin-redirect.test.ts` ("AJ2: with \"adminBaseUrl\": false") |
 | AJ3 | A published page, a `redirects.json` entry or a `theme/root/admin` file at `/admin` is served instead of the redirect; an unpublished page there falls back to it | `test/routes/admin-redirect.test.ts` ("AJ3: ...") |
 
+## Group AK: A neutral starter for new sites
+
+Agreed with the owner (2026-11-10): `create-site` makes a genuinely minimal, neutral starting point, not a page about Minamo. Placeholder text says what each place is for; Home, About (with Our team nested), Contact and 404; light, with one accent colour. Fuller example sites (architecture, wellbeing, a restaurant) are planned separately, outside the package.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AK1 | A new site passes `check-site` with no findings or suggestions | `test/create-site/starter.test.ts` ("a new site passes the site check"); `test/upgrade/upgrade.test.ts` ("finishUpgrade updates content ... and checks the site") |
+| AK2 | It has Home, About, About/Our team, Contact and 404, a `main` and a `footer` menu, and one page template | `test/create-site/starter.test.ts` ("a new site has Home, About, Our team ...") |
+| AK3 | Every section renders as an editor first adds it, with each block it allows, and shows no drop target or placeholder while no picture is set | `test/create-site/starter.test.ts` ("every section renders as an editor first adds it ...") |
+| AK4 | Pictures set in sections and blocks are drop targets naming their field; a video never claims to be an image | `test/create-site/responsive-media.test.ts` |
+| AK5 | The site name, accent colour, font, contact details and social links come from site settings; empty ones are hidden and text is escaped before its line breaks are added | `test/create-site/site-settings.test.ts` |
+| AK6 | The starter's theme and content never mention Minamo, and nothing in it uses an em or en dash | `test/create-site/starter.test.ts` ("the starter stays neutral ...") |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

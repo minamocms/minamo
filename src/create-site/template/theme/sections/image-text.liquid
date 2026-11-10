@@ -1,0 +1,48 @@
+{%- assign has_media = false -%}
+{%- if section.settings.video.url or section.settings.image.url -%}{%- assign has_media = true -%}{%- endif -%}
+<section class="section{% if section.settings.tinted %} section--tinted{% endif %}" data-section-id="{{ section.id }}">
+  <div class="container image-text{% if has_media %} image-text--with-media{% endif %}{% if section.settings.side == 'Left' %} image-text--media-left{% endif %}">
+    <div class="image-text__content">
+      {% if section.settings.heading != blank %}<h2>{{ section.settings.heading }}</h2>{% endif %}
+      <div class="prose">{{ section.settings.body | raw }}</div>
+      {% if blocksHtml.size > 0 %}<div class="actions">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>{% endif %}
+    </div>
+    {%- comment -%} A video, when set, takes the place of the picture. {%- endcomment -%}
+    {% if section.settings.video.url %}
+      {% render 'responsive-media',
+           media: section.settings.video,
+           kind: 'video',
+           field: 'video',
+           alt: section.settings.image_alt,
+           ratio: '4 / 3',
+           class: 'image-text__media' %}
+    {% elsif section.settings.image.url %}
+      {% render 'responsive-media',
+           media: section.settings.image,
+           kind: 'image',
+           field: 'image',
+           alt: section.settings.image_alt,
+           ratio: '4 / 3',
+           class: 'image-text__media' %}
+    {% endif %}
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Image and text",
+  "description": "A picture or short video beside a heading and text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["body"],
+  "properties": {
+    "heading": { "type": "string" },
+    "body": { "type": "string", "format": "richtext", "minLength": 1, "default": "<p>Pair a picture with a few sentences about it.</p>" },
+    "image": { "type": "object", "format": "image", "title": "Picture" },
+    "image_alt": { "type": "string", "title": "Describe the picture", "description": "For people who can't see it, and for search engines." },
+    "video": { "type": "object", "format": "video", "group": "Video", "title": "Short video", "description": "A short, silent loop shown instead of the picture. Under 10MB, as .mp4 or .webm." },
+    "side": { "type": "string", "enum": ["Left", "Right"], "group": "Layout", "title": "Picture side", "default": "Right" },
+    "tinted": { "type": "boolean", "format": "toggle", "group": "Layout", "title": "Tinted background" }
+  },
+  "allowedBlocks": ["button"]
+}
+{% endschema %}

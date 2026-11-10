@@ -1,0 +1,24 @@
+<section class="section" data-section-id="{{ section.id }}">
+  <div class="container">
+    <div class="cta"{% if section.settings.background != blank %} style="--cta-background: {{ section.settings.background }};"{% endif %}>
+      <h2>{{ section.settings.heading }}</h2>
+      {% if section.settings.text != blank %}<p class="lead">{{ section.settings.text | escape | newline_to_br | raw }}</p>{% endif %}
+      {% if blocksHtml.size > 0 %}<div class="actions">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>{% endif %}
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Call to action",
+  "description": "A coloured panel with a heading and buttons, to end a page with a next step.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "heading": { "type": "string", "minLength": 1, "default": "Ready to talk?" },
+    "text": { "type": "string", "format": "textarea" },
+    "background": { "type": "string", "format": "color", "pattern": "^#[0-9a-fA-F]{6}$", "swatches": ["#1d1b19", "#2b59c3", "#0f766e", "#b45309", "#be123c", "#6d28d9"], "title": "Background colour", "description": "Leave it empty to use the accent colour from Settings." }
+  },
+  "allowedBlocks": ["button"]
+}
+{% endschema %}

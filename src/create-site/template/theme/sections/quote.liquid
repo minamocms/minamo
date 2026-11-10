@@ -1,0 +1,40 @@
+<section class="section{% if section.settings.tinted %} section--tinted{% endif %}" data-section-id="{{ section.id }}">
+  <div class="container container--narrow">
+    <figure class="quote">
+      <blockquote><p>{{ section.settings.quote | escape | newline_to_br | raw }}</p></blockquote>
+      {% if section.settings.name != blank %}
+        <figcaption class="quote__by">
+          {% if section.settings.photo.url %}
+            {% render 'responsive-media',
+                 media: section.settings.photo,
+                 kind: 'image',
+                 field: 'photo',
+                 alt: section.settings.name,
+                 ratio: '1 / 1',
+                 class: 'quote__photo' %}
+          {% endif %}
+          <span>
+            <strong>{{ section.settings.name }}</strong>
+            {% if section.settings.role != blank %}<span class="quote__role">{{ section.settings.role }}</span>{% endif %}
+          </span>
+        </figcaption>
+      {% endif %}
+    </figure>
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Quote",
+  "description": "A testimonial or quotation, with who said it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quote"],
+  "properties": {
+    "quote": { "type": "string", "format": "textarea", "minLength": 1, "default": "A short quote from someone you've helped says more than a paragraph about yourself." },
+    "name": { "type": "string", "title": "Who said it" },
+    "role": { "type": "string", "title": "Their role or company" },
+    "photo": { "type": "object", "format": "image", "title": "Their photo" },
+    "tinted": { "type": "boolean", "format": "toggle", "title": "Tinted background" }
+  }
+}
+{% endschema %}

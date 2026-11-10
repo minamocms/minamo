@@ -1,0 +1,40 @@
+<section class="section{% if section.settings.tinted %} section--tinted{% endif %}" data-section-id="{{ section.id }}">
+  <div class="container contact">
+    <div class="contact__details">
+      {% if section.settings.heading != blank %}<h2>{{ section.settings.heading }}</h2>{% endif %}
+      {% if section.settings.intro != blank %}<div class="prose">{{ section.settings.intro | raw }}</div>{% endif %}
+      {%- comment -%} From site settings, so they're the same everywhere they appear. {%- endcomment -%}
+      <dl class="contact__list">
+        {% if settings.email != blank %}<div><dt>Email</dt><dd><a href="mailto:{{ settings.email }}">{{ settings.email }}</a></dd></div>{% endif %}
+        {% if settings.phone != blank %}<div><dt>Phone</dt><dd><a href="tel:{{ settings.phone | remove: ' ' }}">{{ settings.phone }}</a></dd></div>{% endif %}
+        {% if settings.address != blank %}
+          <div><dt>Address</dt><dd>{{ settings.address | escape | newline_to_br | raw }}{% if section.settings.show_map and settings.map_url != blank %}<br><a href="{{ settings.map_url }}">View on a map</a>{% endif %}</dd></div>
+        {% endif %}
+      </dl>
+    </div>
+    {% if section.settings.hours.size > 0 %}
+      <div class="contact__hours">
+        <h3>{{ section.settings.hours_heading | default: 'Opening hours' }}</h3>
+        <ul>
+          {% for line in section.settings.hours %}<li>{{ line }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Contact details",
+  "description": "Your email, phone and address from Settings, with optional opening hours.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "heading": { "type": "string", "default": "Contact details" },
+    "intro": { "type": "string", "format": "richtext" },
+    "show_map": { "type": "boolean", "format": "toggle", "title": "Show the map link", "description": "Set the link itself in Settings, under Contact.", "default": true },
+    "hours_heading": { "type": "string", "group": "Hours", "title": "Hours heading", "default": "Opening hours" },
+    "hours": { "type": "array", "items": { "type": "string", "minLength": 1 }, "maxItems": 10, "group": "Hours", "title": "Hours", "description": "One line each, such as \"Monday to Friday: 9am to 5pm\"." },
+    "tinted": { "type": "boolean", "format": "toggle", "title": "Tinted background" }
+  }
+}
+{% endschema %}

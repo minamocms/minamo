@@ -1,0 +1,28 @@
+<section class="section{% if section.settings.tinted %} section--tinted{% endif %}" data-section-id="{{ section.id }}">
+  <div class="container">
+    {% if section.settings.heading != blank or section.settings.intro != blank %}
+      <div class="section-intro">
+        {% if section.settings.heading != blank %}<h2>{{ section.settings.heading }}</h2>{% endif %}
+        {% if section.settings.intro != blank %}<p class="lead">{{ section.settings.intro | escape | newline_to_br | raw }}</p>{% endif %}
+      </div>
+    {% endif %}
+    <div class="cards" style="--columns: {{ section.settings.columns | default: 3 }};">
+      {% for html in blocksHtml %}{{ html | raw }}{% endfor %}
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Cards",
+  "description": "A grid of cards, each with an optional picture, a title, text and a link.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "heading": { "type": "string" },
+    "intro": { "type": "string", "format": "textarea" },
+    "columns": { "type": "integer", "format": "range", "minimum": 2, "maximum": 4, "group": "Layout", "title": "Cards per row", "default": 3 },
+    "tinted": { "type": "boolean", "format": "toggle", "group": "Layout", "title": "Tinted background" }
+  },
+  "allowedBlocks": ["card"]
+}
+{% endschema %}

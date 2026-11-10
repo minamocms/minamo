@@ -33,7 +33,7 @@ interface ScaffoldSection {
   settings: Record<string, unknown>;
 }
 
-// Patches the home page's own hero/cta-banner instances in place, so the
+// Patches the home page's own hero/image-text instances in place, so the
 // test exercises the scaffold's real sections rather than a hand-written
 // stand-in that could drift from them.
 function patchHomePage(dir: string, patch: (section: ScaffoldSection) => void): void {
@@ -79,8 +79,8 @@ test('a video setting renders as a drop target but never claims to be an image',
   const { dir, cleanup } = scaffold();
   try {
     patchHomePage(dir, (section) => {
-      if (section.type === 'cta-banner') {
-        section.settings.backgroundLoop = {
+      if (section.type === 'image-text') {
+        section.settings.video = {
           url: '/media/loop-abc123def456.mp4',
           poster: '/media/still-abc123def456.jpg',
         };
@@ -89,7 +89,7 @@ test('a video setting renders as a drop target but never claims to be an image',
 
     const html = await renderHome(dir);
 
-    assert.match(html, /data-cms-media="backgroundLoop"/);
+    assert.match(html, /data-cms-media="video"/);
     assert.match(html, /data-cms-media-kind="video"/);
     assert.match(html, /<video/);
     assert.match(html, /poster="\/media\/still-abc123def456\.jpg"/);
@@ -118,7 +118,7 @@ test('a section with no image set renders no drop target at all', async () => {
     assert.equal(/data-cms-image=/.test(html), false);
     // Positive control: the page really did render, so the assertions above
     // are not passing simply because nothing was produced.
-    assert.match(html, /<section class="hero"/);
+    assert.match(html, /<section class="section hero/);
   } finally {
     cleanup();
   }

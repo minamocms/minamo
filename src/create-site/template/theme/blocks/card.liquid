@@ -1,0 +1,35 @@
+<article class="card" data-block-id="{{ block.id }}">
+  {% if block.settings.image.url %}
+    {% render 'responsive-media',
+         media: block.settings.image,
+         kind: 'image',
+         field: 'image',
+         alt: block.settings.image_alt,
+         ratio: '3 / 2',
+         class: 'card__media' %}
+  {% endif %}
+  <div class="card__body">
+    <h3>{{ block.settings.title }}</h3>
+    {% if block.settings.text != blank %}<p>{{ block.settings.text | escape | newline_to_br | raw }}</p>{% endif %}
+    {% if block.settings.link != blank %}
+      <a class="card__link" href="{{ block.settings.link }}">{{ block.settings.link_label | default: 'Find out more' }} {% render 'icon', name: 'arrow' %}</a>
+    {% endif %}
+  </div>
+</article>
+{% schema %}
+{
+  "title": "Card",
+  "description": "One card: an optional picture, a title, text and a link.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "default": "Card title" },
+    "text": { "type": "string", "format": "textarea" },
+    "image": { "type": "object", "format": "image", "title": "Picture" },
+    "image_alt": { "type": "string", "title": "Describe the picture", "description": "For people who can't see it, and for search engines." },
+    "link": { "type": "string", "format": "url", "group": "Link", "title": "Link" },
+    "link_label": { "type": "string", "group": "Link", "title": "Link text", "default": "Find out more" }
+  }
+}
+{% endschema %}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 7,
+  "name": "Footer menu",
+  "items": [
+    {
+      "label": "About",
+      "url": "/about"
+    },
+    {
+      "label": "Our team",
+      "url": "/about/team"
+    },
+    {
+      "label": "Contact",
+      "url": "/contact"
+    }
+  ]
+}

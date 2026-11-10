@@ -1,0 +1,35 @@
+<section class="section{% if section.settings.tinted %} section--tinted{% endif %}" data-section-id="{{ section.id }}">
+  <div class="container">
+    {% if section.settings.heading != blank %}<div class="section-intro"><h2>{{ section.settings.heading }}</h2></div>{% endif %}
+    {% if section.settings.images.size > 0 %}
+      <div class="gallery">
+        {%- comment -%}
+          Plain <img> tags, not the responsive-media snippet: a drop in the
+          preview replaces a whole setting, so a drop onto one picture would
+          replace the entire gallery. Gallery pictures are added, removed and
+          reordered in the section's gallery field instead.
+        {%- endcomment -%}
+        {% for image in section.settings.images %}
+          {%- assign fx = image.focalX | default: 0.5 | times: 100 | round: 1 -%}
+          {%- assign fy = image.focalY | default: 0.5 | times: 100 | round: 1 -%}
+          <figure class="gallery__item">
+            <img src="{{ image.url }}" alt="" loading="lazy" decoding="async" style="object-position: {{ fx }}% {{ fy }}%;">
+          </figure>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Gallery",
+  "description": "A grid of pictures.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "heading": { "type": "string" },
+    "images": { "type": "array", "items": { "type": "object", "format": "image" }, "maxItems": 24, "title": "Pictures" },
+    "tinted": { "type": "boolean", "format": "toggle", "title": "Tinted background" }
+  }
+}
+{% endschema %}

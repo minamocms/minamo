@@ -1,47 +1,38 @@
-<section class="hero" data-section-id="{{ section.id }}">
+<section class="section hero{% if section.settings.align == 'Centre' %} hero--centre{% endif %}{% if section.settings.image.url %} hero--with-media{% endif %}" data-section-id="{{ section.id }}">
   <div class="container hero__inner">
-    <div class="hero__content reveal">
-      {% if section.settings.eyebrow %}<span class="eyebrow">{{ section.settings.eyebrow }}</span>{% endif %}
+    <div class="hero__content">
+      {% if section.settings.eyebrow != blank %}<p class="eyebrow">{{ section.settings.eyebrow }}</p>{% endif %}
       <h1>{{ section.settings.heading }}</h1>
-      {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
-      <div class="hero__actions">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>
+      {% if section.settings.text != blank %}<p class="lead">{{ section.settings.text | escape | newline_to_br | raw }}</p>{% endif %}
+      {% if blocksHtml.size > 0 %}<div class="actions">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>{% endif %}
     </div>
     {% if section.settings.image.url %}
       {% render 'responsive-media',
            media: section.settings.image,
            kind: 'image',
            field: 'image',
-           alt: section.settings.heading,
+           alt: section.settings.image_alt,
            ratio: '4 / 3',
            loading: 'eager',
            priority: true,
-           need: 'The main hero image',
-           class: 'hero__media reveal' %}
-    {% elsif section.settings.codeSnippet %}
-      <div class="code-panel reveal">
-        <div class="code-panel__bar">
-          <span></span><span></span><span></span>
-          {% if section.settings.codeTitle %}<span class="code-panel__title">{{ section.settings.codeTitle }}</span>{% endif %}
-        </div>
-        <pre><code>{{ section.settings.codeSnippet }}</code></pre>
-      </div>
+           class: 'hero__media' %}
     {% endif %}
   </div>
 </section>
 {% schema %}
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Hero",
+  "description": "The big opening heading at the top of a page, with optional buttons and picture.",
   "type": "object",
   "additionalProperties": false,
   "required": ["heading"],
   "properties": {
-    "eyebrow": { "type": "string" },
-    "heading": { "type": "string", "minLength": 1, "default": "New Section" },
-    "subheading": { "type": "string" },
-    "image": { "type": "object", "format": "image" },
-    "codeTitle": { "type": "string" },
-    "codeSnippet": { "type": "string" }
+    "eyebrow": { "type": "string", "title": "Small text above the heading" },
+    "heading": { "type": "string", "minLength": 1, "default": "Say what you do in one clear sentence." },
+    "text": { "type": "string", "format": "textarea" },
+    "image": { "type": "object", "format": "image", "title": "Picture" },
+    "image_alt": { "type": "string", "title": "Describe the picture", "description": "For people who can't see it, and for search engines." },
+    "align": { "type": "string", "enum": ["Left", "Centre"], "title": "Alignment", "default": "Left" }
   },
   "allowedBlocks": ["button"]
 }

@@ -32,7 +32,7 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     assert.ok(existsSync(join(targetDir, 'theme', 'layouts', 'theme.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'sections', 'hero.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'blocks', 'button.liquid')));
-    assert.ok(existsSync(join(targetDir, 'theme', 'snippets', 'site-name.liquid')));
+    assert.ok(existsSync(join(targetDir, 'theme', 'snippets', 'responsive-media.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'assets', 'style.css')));
     // The old subfolder-per-component shape must be genuinely gone
     // (Group O flattened sections/blocks to one file each), not just

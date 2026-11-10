@@ -1,9 +1,18 @@
 {
   "schemaVersion": 7,
+  "name": "Main menu",
   "items": [
-    { "label": "Features", "url": "#features" },
-    { "label": "How it works", "url": "#how-it-works" },
-    { "label": "Pricing", "url": "#pricing" },
-    { "label": "FAQ", "url": "#faq" }
+    {
+      "label": "Home",
+      "url": "/"
+    },
+    {
+      "label": "About",
+      "url": "/about"
+    },
+    {
+      "label": "Contact",
+      "url": "/contact"
+    }
   ]
 }

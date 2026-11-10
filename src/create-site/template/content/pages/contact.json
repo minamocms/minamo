@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 7,
+  "name": "Contact",
+  "title": "Contact",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Contact",
+        "heading": "Get in touch.",
+        "text": "Tell visitors the best way to reach you, and when they can expect a reply."
+      }
+    },
+    {
+      "id": "details",
+      "type": "contact-details",
+      "settings": {
+        "heading": "Contact details",
+        "intro": "<p>Your email address, phone number and address come from <strong>Settings</strong>, so they stay the same everywhere they appear. Leave one empty there to hide it.</p>",
+        "show_map": true,
+        "hours_heading": "Opening hours",
+        "hours": [
+          "Monday to Friday: 9am to 5pm",
+          "Saturday: 10am to 2pm",
+          "Sunday: closed"
+        ]
+      }
+    }
+  ]
+}

@@ -1,21 +1,51 @@
 {
   "schemaVersion": 7,
-  "name": "Team",
-  "title": "Team - Minamo",
+  "name": "Our team",
+  "title": "Our team",
   "type": "page",
   "layout": "theme",
   "published": true,
   "sections": [
     {
-      "id": "sec-hero",
+      "id": "hero",
       "type": "hero",
       "settings": {
-        "eyebrow": "About / Team",
-        "heading": "A small team, on purpose.",
-        "subheading": "Minamo is maintained by a handful of people who'd rather ship a focused tool than manage a plugin marketplace."
+        "eyebrow": "Our team",
+        "heading": "The people behind the work.",
+        "text": "Introduce each person with a photo, their role and a sentence about them."
+      }
+    },
+    {
+      "id": "people",
+      "type": "cards",
+      "settings": {
+        "columns": 3
       },
       "blocks": [
-        { "id": "blk-team-cta", "type": "button", "settings": { "label": "Back to About", "url": "/about", "style": "secondary" } }
+        {
+          "id": "person-1",
+          "type": "card",
+          "settings": {
+            "title": "Person's name",
+            "text": "Their role. A sentence about what they do and what they enjoy about it."
+          }
+        },
+        {
+          "id": "person-2",
+          "type": "card",
+          "settings": {
+            "title": "Person's name",
+            "text": "Their role. Add their photo to the card, and describe it for people who can't see it."
+          }
+        },
+        {
+          "id": "person-3",
+          "type": "card",
+          "settings": {
+            "title": "Person's name",
+            "text": "Their role. Remove cards you don't need, or add more."
+          }
+        }
       ]
     }
   ]

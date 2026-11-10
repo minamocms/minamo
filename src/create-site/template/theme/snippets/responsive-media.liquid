@@ -29,7 +29,7 @@
   tell whether it is rendering for the admin preview or for the public site -
   the renderer does not expose that - so an editor-only affordance would leak
   onto the live site as a dashed box in front of real visitors. Guard the call
-  instead, exactly as hero.liquid and cta-banner.liquid do:
+  instead, exactly as hero.liquid and image-text.liquid do:
 
     {% if section.settings.image.url %}{% render 'responsive-media', ... %}{% endif %}
 

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 7,
+  "name": "Standard page",
+  "title": "Standard page",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "hero",
+      "type": "hero",
+      "settings": {
+        "heading": "The page's main heading.",
+        "text": "A sentence introducing the page."
+      }
+    },
+    {
+      "id": "body",
+      "type": "rich-text",
+      "settings": {
+        "body": "<p>The page's text. Add more sections below for pictures, cards or questions.</p>"
+      }
+    }
+  ]
+}

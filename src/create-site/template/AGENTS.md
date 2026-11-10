@@ -33,6 +33,8 @@ No subfolders inside `layouts/`, `sections/`, `blocks/`, or `snippets/` - one fi
 
 This scaffold already ships real, working examples worth reading before writing anything new: `theme/sections/hero.liquid`, `theme/blocks/button.liquid`, and `theme/layouts/theme.liquid`. Match their conventions rather than inventing a different style.
 
+The starter is deliberately plain and neutral, meant to be restyled or replaced. Its nine sections (`hero`, `rich-text`, `image-text`, `cards`, `gallery`, `quote`, `faq`, `call-to-action`, `contact-details`) and three blocks (`button`, `card`, `faq-item`) between them use every field shape in "Field format hints" below except `date`, so there is a working example of each to copy. Its site settings (`theme/config/site_settings.json`) hold the site name, logo, accent colour, font, contact details and social links; `contact-details.liquid` and the layout read them.
+
 ## Turning a design into code - the actual workflow
 
 1. Break the design into distinct repeating/reusable visual components. Each one becomes a `theme/sections/<name>.liquid` (a self-contained region of a page) or `theme/blocks/<name>.liquid` (a smaller item nested inside a section, e.g. one card in a grid, one FAQ row).
@@ -116,7 +118,7 @@ Write the description as one short sentence about what the section **is**, not w
 
 Flat `.liquid` files in `snippets/`, invoked with `{% render 'name', param1: value %}` - never `{% include %}`. A snippet only sees parameters explicitly passed to it; the calling scope never leaks in.
 
-This scaffold ships one you must use: **`snippets/responsive-media.liquid`, through which every content image and video is rendered.** It emits the attribute that lets an editor drag a file from the media library straight onto the picture in the live preview. See "Making an image or video droppable" below, and `theme/sections/hero.liquid` / `theme/sections/cta-banner.liquid` for real call sites.
+This scaffold ships one you must use: **`snippets/responsive-media.liquid`, through which every content image and video is rendered.** It emits the attribute that lets an editor drag a file from the media library straight onto the picture in the live preview. See "Making an image or video droppable" below, and `theme/sections/hero.liquid` / `theme/sections/image-text.liquid` for real call sites.
 
 ## Site settings
 
@@ -360,7 +362,7 @@ This is not a stylistic preference. The admin's picker, the focal point, and dra
 
 ### Making an image or video droppable
 
-Render every content image and video through the `responsive-media` snippet the scaffold ships in `theme/snippets/` - see `hero.liquid` and `cta-banner.liquid` for working call sites:
+Render every content image and video through the `responsive-media` snippet the scaffold ships in `theme/snippets/` - see `hero.liquid` and `image-text.liquid` for working call sites:
 
 ```liquid
 {% if section.settings.image.url %}
@@ -399,6 +401,8 @@ Parameters:
 | `class` | Extra classes on the wrapper element |
 
 The snippet puts `data-cms-media="<field>"` on the element it renders (plus `data-cms-image` for images). **That attribute is the whole contract.** The admin finds a drop target by searching the previewed page for it, and uses its value to know which setting to write the new URL into, so `field` must match the schema property name exactly. A hand-written `<img>` without it renders perfectly and is simply never droppable - a silent gap, because nothing about the page looks wrong, which is exactly how a real generated site shipped with every image un-editable.
+
+**Two exceptions, both in this starter:** a gallery (`array` of `format: "image"`) and an image in site settings (such as the logo) are rendered as plain `<img>` tags. A drop replaces a whole setting on the section or block it lands in, so a drop onto one gallery picture would replace the entire gallery, and a site setting has no section to write to. Those are edited through their own pickers instead; see `gallery.liquid` and `layouts/theme.liquid`.
 
 Guard the call on the url, as above. An unset image renders nothing at all rather than a placeholder: a theme cannot tell whether it is rendering for the admin preview or the public site, so an editor-only affordance would show to real visitors. The first image is set through the Fields panel's own picker; drag-and-drop replaces it from then on.
 

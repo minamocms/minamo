@@ -1,0 +1,21 @@
+<section class="section{% if section.settings.tinted %} section--tinted{% endif %}" data-section-id="{{ section.id }}">
+  <div class="container{% if section.settings.width != 'Wide' %} container--narrow{% endif %}">
+    {% if section.settings.heading != blank %}<h2>{{ section.settings.heading }}</h2>{% endif %}
+    <div class="prose">{{ section.settings.body | raw }}</div>
+  </div>
+</section>
+{% schema %}
+{
+  "title": "Text",
+  "description": "Paragraphs of formatted text, with headings, lists, quotes and links.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["body"],
+  "properties": {
+    "heading": { "type": "string" },
+    "body": { "type": "string", "format": "richtext", "minLength": 1, "default": "<p>Write as much or as little as you need. Use the toolbar for headings, bold, lists, quotes and links.</p>" },
+    "width": { "type": "string", "enum": ["Narrow", "Wide"], "group": "Layout", "default": "Narrow" },
+    "tinted": { "type": "boolean", "format": "toggle", "group": "Layout", "title": "Tinted background" }
+  }
+}
+{% endschema %}

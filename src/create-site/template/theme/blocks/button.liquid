@@ -1,21 +1,16 @@
-{% if block.settings.style == 'secondary' %}
-<a class="btn btn--secondary" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
-{% elsif block.settings.style == 'on-dark' %}
-<a class="btn btn--on-dark" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
-{% else %}
-<a class="btn btn--primary" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
-{% endif %}
+<a class="btn {% if block.settings.style == 'Secondary' %}btn--secondary{% else %}btn--primary{% endif %}" data-block-id="{{ block.id }}" href="{{ block.settings.url }}"{% if block.settings.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ block.settings.label }}</a>
 {% schema %}
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Button",
+  "description": "A link styled as a button.",
   "type": "object",
   "additionalProperties": false,
   "required": ["label", "url"],
   "properties": {
-    "label": { "type": "string", "minLength": 1, "default": "Learn more" },
-    "url": { "type": "string", "minLength": 1, "default": "#" },
-    "style": { "type": "string", "enum": ["primary", "secondary", "on-dark"] }
+    "label": { "type": "string", "minLength": 1, "default": "Find out more" },
+    "url": { "type": "string", "format": "url", "minLength": 1, "title": "Link", "default": "/" },
+    "style": { "type": "string", "enum": ["Primary", "Secondary"], "default": "Primary" },
+    "new_tab": { "type": "boolean", "title": "Open in a new tab" }
   }
 }
 {% endschema %}

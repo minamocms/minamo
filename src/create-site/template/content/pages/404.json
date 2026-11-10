@@ -1,22 +1,29 @@
 {
   "schemaVersion": 7,
   "name": "Page not found",
-  "title": "Page not found - Minamo",
+  "title": "Page not found",
   "type": "page",
   "layout": "theme",
   "published": true,
   "sections": [
     {
-      "id": "sec-hero",
+      "id": "hero",
       "type": "hero",
       "settings": {
-        "eyebrow": "404",
-        "heading": "This page didn't make it into the build.",
-        "subheading": "The page you're looking for doesn't exist, or has moved. Check the URL, or head back to solid ground."
+        "eyebrow": "Page not found",
+        "heading": "We can't find that page.",
+        "text": "It may have moved, or the address may have a typo in it."
       },
       "blocks": [
-        { "id": "blk-home", "type": "button", "settings": { "label": "Back to home", "url": "/", "style": "primary" } },
-        { "id": "blk-docs", "type": "button", "settings": { "label": "View the docs", "url": "/docs", "style": "secondary" } }
+        {
+          "id": "home",
+          "type": "button",
+          "settings": {
+            "label": "Back to the home page",
+            "url": "/",
+            "style": "Primary"
+          }
+        }
       ]
     }
   ]

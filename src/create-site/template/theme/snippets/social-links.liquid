@@ -1,0 +1,11 @@
+{%- comment -%}
+  The social links from site settings. A link left empty isn't shown,
+  and with none set nothing is shown at all.
+{%- endcomment -%}
+{%- if settings.instagram_url != blank or settings.facebook_url != blank or settings.linkedin_url != blank -%}
+<ul class="social-links">
+  {% if settings.instagram_url != blank %}<li><a href="{{ settings.instagram_url }}" aria-label="Instagram">{% render 'icon', name: 'instagram' %}</a></li>{% endif %}
+  {% if settings.facebook_url != blank %}<li><a href="{{ settings.facebook_url }}" aria-label="Facebook">{% render 'icon', name: 'facebook' %}</a></li>{% endif %}
+  {% if settings.linkedin_url != blank %}<li><a href="{{ settings.linkedin_url }}" aria-label="LinkedIn">{% render 'icon', name: 'linkedin' %}</a></li>{% endif %}
+</ul>
+{%- endif -%}

@@ -1,44 +1,53 @@
+{%- assign site_name = settings.site_name | default: 'Your site name' -%}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ page.title }}</title>
-    <meta name="description" content="Minamo is a lightweight, self-hosted content management system built for agencies and freelance developers who manage client sites on git-based workflows.">
+    <title>{% if page.title == site_name %}{{ site_name }}{% else %}{{ page.title }} | {{ site_name }}{% endif %}</title>
+    {% if settings.description != blank %}<meta name="description" content="{{ settings.description }}">{% endif %}
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/style.css">
-      {%- comment -%} The body font is a site setting: the theme offers the choices, and maps each to a font stack here. {%- endcomment -%}
-    {% if settings.body_font == 'Serif' %}<style>:root { --font-sans: Georgia, 'Times New Roman', serif; }</style>{% endif %}
-</head>
+    {%- comment -%}
+      The accent colour and font are site settings: editors choose them in
+      the admin, and the CSS reads them as custom properties.
+    {%- endcomment -%}
+    <style>:root { --accent: {{ settings.accent_colour | default: '#2b59c3' }};{% if settings.body_font == 'Serif' %} --font-body: var(--font-serif);{% endif %} }</style>
+    <script src="/assets/site.js" defer></script>
+  </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
 
-    <header class="site-header" data-site-header>
+    <header class="site-header">
       <div class="container site-header__inner">
-        <a href="/" class="logo">{% render 'logo' %}</a>
+        <a class="site-header__brand" href="/">
+          {%- comment -%}
+            A plain <img>, not the responsive-media snippet: the logo lives in
+            site settings, not in a section, so there is nothing for a
+            drag-and-drop in the preview to write to. It changes in Settings.
+          {%- endcomment -%}
+          {%- if settings.logo.url != blank -%}
+            <img class="site-header__logo" src="{{ settings.logo.url }}" alt="{{ site_name }}">
+          {%- else -%}
+            {{ site_name }}
+          {%- endif -%}
+        </a>
 
-        <nav class="site-nav" aria-label="Primary">
+        <nav class="site-nav" id="site-nav" aria-label="Main">
           <ul>
             {% for item in menus.main.items %}
               <li><a href="{{ item.url }}">{{ item.label }}</a></li>
             {% endfor %}
           </ul>
+          {% if settings.header_button_label != blank and settings.header_button_url != blank %}
+            <a class="btn btn--primary btn--small" href="{{ settings.header_button_url }}">{{ settings.header_button_label }}</a>
+          {% endif %}
         </nav>
 
-        <div class="site-header__actions">
-          <a class="btn btn--primary btn--sm" href="#pricing">Get started</a>
-          <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="mobile-nav" aria-label="Toggle menu">
-            <span></span><span></span><span></span>
-          </button>
-        </div>
-      </div>
-
-      <div class="mobile-nav" id="mobile-nav" data-mobile-nav>
-        <ul>
-          {% for item in menus.main.items %}
-            <li><a href="{{ item.url }}">{{ item.label }}</a></li>
-          {% endfor %}
-        </ul>
-        <a class="btn btn--primary btn--block" href="#pricing">Get started</a>
+        <button class="nav-toggle" type="button" aria-controls="site-nav" aria-expanded="false" data-nav-toggle>
+          <span class="nav-toggle__bars" aria-hidden="true"></span>
+          <span class="visually-hidden">Menu</span>
+        </button>
       </div>
     </header>
 
@@ -47,56 +56,32 @@
     </main>
 
     <footer class="site-footer">
-      <div class="container">
-        <div class="footer__grid">
-          <div class="footer__brand">
-            {% render 'logo' %}
-            <p>Solid foundations for client sites. A lightweight, self-hosted CMS built for developers.</p>
-            <div class="footer__social">
-              {%- comment -%} Site settings (theme/config/site_settings.json): editors change these in the admin. A link left empty isn't shown. {%- endcomment -%}
-              {% if settings.github_url != blank %}<a href="{{ settings.github_url }}" aria-label="GitHub">{% render 'icon', name: 'github' %}</a>{% endif %}
-              {% if settings.x_url != blank %}<a href="{{ settings.x_url }}" aria-label="X (Twitter)">{% render 'icon', name: 'twitter' %}</a>{% endif %}
-              {% if settings.discord_url != blank %}<a href="{{ settings.discord_url }}" aria-label="Discord">{% render 'icon', name: 'discord' %}</a>{% endif %}
-            </div>
-          </div>
-
-          <div class="footer__cols">
-            <nav class="footer__col" aria-label="Product">
-              <h3>Product</h3>
-              <ul>
-                {% for item in menus.footerProduct.items %}
-                  <li><a href="{{ item.url }}">{{ item.label }}</a></li>
-                {% endfor %}
-              </ul>
-            </nav>
-
-            <nav class="footer__col" aria-label="Resources">
-              <h3>Resources</h3>
-              <ul>
-                {% for item in menus.footerResources.items %}
-                  <li><a href="{{ item.url }}">{{ item.label }}</a></li>
-                {% endfor %}
-              </ul>
-            </nav>
-
-            <nav class="footer__col" aria-label="Company">
-              <h3>Company</h3>
-              <ul>
-                {% for item in menus.footerCompany.items %}
-                  <li><a href="{{ item.url }}">{{ item.label }}</a></li>
-                {% endfor %}
-              </ul>
-            </nav>
-          </div>
+      <div class="container site-footer__grid">
+        <div class="site-footer__about">
+          <p class="site-footer__name">{{ site_name }}</p>
+          {% if settings.footer_text != blank %}<p>{{ settings.footer_text | escape | newline_to_br | raw }}</p>{% endif %}
+          {% render 'social-links' %}
         </div>
 
-        <div class="footer__bottom">
-          <span>&copy; 2026 Minamo. All rights reserved.</span>
-          <span>Built and self-hosted, everywhere.</span>
+        {% if menus.footer.items.size > 0 %}
+          <nav class="site-footer__nav" aria-label="{{ menus.footer.name | default: 'Footer' }}">
+            <ul>
+              {% for item in menus.footer.items %}
+                <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+              {% endfor %}
+            </ul>
+          </nav>
+        {% endif %}
+
+        <div class="site-footer__contact">
+          {% if settings.email != blank %}<p><a href="mailto:{{ settings.email }}">{{ settings.email }}</a></p>{% endif %}
+          {% if settings.phone != blank %}<p><a href="tel:{{ settings.phone | remove: ' ' }}">{{ settings.phone }}</a></p>{% endif %}
+          {% if settings.address != blank %}<p>{{ settings.address | escape | newline_to_br | raw }}</p>{% endif %}
         </div>
       </div>
+      <div class="container site-footer__base">
+        <p>&copy; {{ 'now' | date: '%Y' }} {{ site_name }}</p>
+      </div>
     </footer>
-
-    <script src="/assets/site.js"></script>
   </body>
 </html>

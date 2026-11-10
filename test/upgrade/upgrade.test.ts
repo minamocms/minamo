@@ -133,9 +133,8 @@ test('finishUpgrade updates content to the current format without committing it,
     assert.equal(git(['rev-list', '--count', 'HEAD']).trim(), commits, 'nothing committed');
     assert.match(git(['status', '--porcelain']), /content\/pages\/about\.json/);
     assert.equal(result.migrationProblem, null);
-    // The check runs; a fresh scaffold has known broken links of its own,
-    // so only that it ran is asserted here.
-    assert.ok(Array.isArray(result.check.findings));
+    // The check runs, and a fresh site passes it.
+    assert.deepEqual(result.check.findings, []);
   } finally {
     cleanup();
   }

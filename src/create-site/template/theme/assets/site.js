@@ -1,49 +1,21 @@
+// The mobile menu: the only script the theme needs.
 (function () {
   var toggle = document.querySelector('[data-nav-toggle]');
-  var mobileNav = document.querySelector('[data-mobile-nav]');
+  var nav = document.getElementById('site-nav');
+  if (!toggle || !nav) return;
 
-  if (toggle && mobileNav) {
-    toggle.addEventListener('click', function () {
-      var isOpen = mobileNav.classList.toggle('is-open');
-      toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    });
-
-    mobileNav.querySelectorAll('a').forEach(function (link) {
-      link.addEventListener('click', function () {
-        mobileNav.classList.remove('is-open');
-        toggle.setAttribute('aria-expanded', 'false');
-      });
-    });
+  function setOpen(open) {
+    nav.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
-  var header = document.querySelector('[data-site-header]');
-  if (header) {
-    var onScroll = function () {
-      header.classList.toggle('is-scrolled', window.scrollY > 8);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-  }
-
-  var revealTargets = document.querySelectorAll('.reveal');
-  if ('IntersectionObserver' in window && revealTargets.length) {
-    var observer = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
-    );
-    revealTargets.forEach(function (el) {
-      observer.observe(el);
-    });
-  } else {
-    revealTargets.forEach(function (el) {
-      el.classList.add('is-visible');
-    });
-  }
+  toggle.addEventListener('click', function () {
+    setOpen(!nav.classList.contains('is-open'));
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && nav.classList.contains('is-open')) {
+      setOpen(false);
+      toggle.focus();
+    }
+  });
 })();

@@ -1,21 +1,56 @@
 {
   "schemaVersion": 7,
   "name": "About",
-  "title": "About - Minamo",
+  "title": "About",
   "type": "page",
   "layout": "theme",
   "published": true,
   "sections": [
     {
-      "id": "sec-hero",
+      "id": "hero",
       "type": "hero",
       "settings": {
         "eyebrow": "About",
-        "heading": "Built by people tired of fighting their CMS.",
-        "subheading": "Minamo started as an internal tool for an agency shipping a dozen client sites a year, and grew into something worth sharing."
+        "heading": "Who you are, and why it matters to the people you help.",
+        "text": "A short introduction. The detail comes further down the page."
+      }
+    },
+    {
+      "id": "story",
+      "type": "rich-text",
+      "settings": {
+        "heading": "Our story",
+        "body": "<p>This is a text section. Use it for anything that reads best as paragraphs: your history, your approach, or a policy.</p><h3>Headings break up longer text</h3><p>Use the toolbar to add headings, <strong>bold</strong> and <em>italic</em> text, and <a href=\"/contact\">links</a>.</p><ul><li>Lists work well for steps or features</li><li>Keep each item short</li><li>Numbered lists are there too</li></ul><blockquote>A quote stands out from the text around it.</blockquote><p>Choose a narrow or wide layout, and a tinted background, in the section's layout settings.</p>",
+        "width": "Narrow"
+      }
+    },
+    {
+      "id": "values",
+      "type": "image-text",
+      "settings": {
+        "heading": "What you care about",
+        "body": "<p>A few sentences about how you work and what makes you different. Add a picture of your team, your place or your work beside it.</p>",
+        "side": "Left",
+        "tinted": true
+      }
+    },
+    {
+      "id": "team-link",
+      "type": "call-to-action",
+      "settings": {
+        "heading": "Meet the people behind the work",
+        "text": "The team page sits under this one in the page list, and its address starts with /about."
       },
       "blocks": [
-        { "id": "blk-about-cta", "type": "button", "settings": { "label": "Meet the team", "url": "/about/team", "style": "primary" } }
+        {
+          "id": "team-link-button",
+          "type": "button",
+          "settings": {
+            "label": "Meet the team",
+            "url": "/about/team",
+            "style": "Primary"
+          }
+        }
       ]
     }
   ]

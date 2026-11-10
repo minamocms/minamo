@@ -3,9 +3,20 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "github_url": { "type": "string", "group": "Social links", "title": "GitHub link", "default": "https://github.com/minamocms/minamo" },
-    "x_url": { "type": "string", "group": "Social links", "title": "X (Twitter) link", "default": "https://x.com" },
-    "discord_url": { "type": "string", "group": "Social links", "title": "Discord link", "default": "https://discord.com" },
-    "body_font": { "type": "string", "group": "Typography", "title": "Body font", "enum": ["Sans-serif", "Serif"], "default": "Sans-serif" }
+    "site_name": { "type": "string", "group": "Site", "title": "Site name", "default": "Your site name" },
+    "logo": { "type": "object", "format": "image", "group": "Site", "title": "Logo", "description": "Shown in place of the site name in the header. Leave it empty to show the name." },
+    "description": { "type": "string", "format": "textarea", "group": "Site", "title": "Description for search engines", "default": "A sentence or two about your site, shown under its name in search results. Change it in Settings." },
+    "accent_colour": { "type": "string", "format": "color", "group": "Style", "title": "Accent colour", "pattern": "^#[0-9a-fA-F]{6}$", "swatches": ["#2b59c3", "#0f766e", "#b45309", "#be123c", "#6d28d9", "#1f2937"], "default": "#2b59c3" },
+    "body_font": { "type": "string", "group": "Style", "title": "Font", "enum": ["Sans-serif", "Serif"], "default": "Sans-serif" },
+    "header_button_label": { "type": "string", "group": "Header", "title": "Button label", "description": "Leave it empty for no button.", "default": "Get in touch" },
+    "header_button_url": { "type": "string", "format": "url", "group": "Header", "title": "Button link", "default": "/contact" },
+    "footer_text": { "type": "string", "format": "textarea", "group": "Footer", "title": "Footer text", "default": "One or two sentences about who you are. Change this in Settings, under Footer." },
+    "email": { "type": "string", "group": "Contact", "title": "Email", "default": "hello@example.com" },
+    "phone": { "type": "string", "group": "Contact", "title": "Phone", "default": "0491 570 156" },
+    "address": { "type": "string", "format": "textarea", "group": "Contact", "title": "Address", "default": "Street address\nSuburb STATE 0000" },
+    "map_url": { "type": "string", "format": "url", "group": "Contact", "title": "Map link", "description": "A link to your location on a map, such as Google Maps." },
+    "instagram_url": { "type": "string", "format": "url", "group": "Social links", "title": "Instagram" },
+    "facebook_url": { "type": "string", "format": "url", "group": "Social links", "title": "Facebook" },
+    "linkedin_url": { "type": "string", "format": "url", "group": "Social links", "title": "LinkedIn" }
   }
 }

@@ -4,6 +4,10 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Changed
+
+- **A new site starts from a plain, neutral starter.** `create-site` used to make a one-page marketing site for Minamo itself (pricing tiers, a comparison table, a demo docs tree), all of which had to be deleted. A new site now has Home, About (with Our team under it), Contact and a 404 page, a main and a footer menu, and a "Standard page" template, all in placeholder text that says what each place is for. The theme is light and readable with no images to license: nine sections (hero, text, image and text, cards, gallery, quote, questions and answers, call to action, contact details) and three blocks (button, card, question), which between them use every kind of field the admin edits. Site settings hold the site name, logo, accent colour, font, contact details and social links. Existing sites are unaffected: their theme and content are their own.
+
 ## [0.15.0] - 2026-11-09
 
 ### Changed
