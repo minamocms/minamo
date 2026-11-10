@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-11-10
+
 ### Fixed
 
 - **A first deploy to Railway works.** New sites get a `.railwayignore`, so `railway up --no-gitignore` no longer uploads `vhost/node_modules` and `vhost/data`, and the hosting guide gives the full steps, including setting `RAILWAY_DOCKERFILE_PATH=vhost/Dockerfile`: a `railway up` upload doesn't read `railway.json`, so without it the build fails with only "Deploy failed". `npm run upgrade` adds the `.railwayignore` to existing sites.
