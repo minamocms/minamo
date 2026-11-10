@@ -51,10 +51,10 @@ The Minamo framework is the combination neither of those is:
 npx -p @minamocms/framework create-site my-site
 cd my-site/vhost
 npm install
-npm start
+npm run dev
 ```
 
-Visit `http://localhost:3000`. `create-site` prints a real access token to
+Visit the address it prints (each new site gets its own port, between 3000 and 3999). `create-site` prints a real access token to
 your terminal when it scaffolds the site - that's what the Minamo admin
 (or a plain `curl`) uses to authenticate against the site's
 `/v1/` API. Lost it, or need a second one? See "Access tokens" in

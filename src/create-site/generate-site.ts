@@ -102,7 +102,14 @@ export class ScaffoldError extends Error {}
 // for enqueue()'s serialisation to matter, and this whole function
 // runs synchronously start to finish, so there's no concurrent-write
 // hazard to guard against.
-export function scaffoldSite(targetDir: string): { raw: string } {
+export interface ScaffoldOptions {
+  // The site's local port. create-site picks a free one at random (see
+  // services/free-port.ts) so several sites can run side by side; 3000,
+  // the server's own default, when not given.
+  port?: number;
+}
+
+export function scaffoldSite(targetDir: string, options: ScaffoldOptions = {}): { raw: string } {
   if (existsSync(targetDir) && readdirSync(targetDir).length > 0) {
     throw new ScaffoldError(`"${targetDir}" already exists and is not empty`);
   }
@@ -153,13 +160,12 @@ export function scaffoldSite(targetDir: string): { raw: string } {
     join(vhostDir, 'site.config.json'),
     JSON.stringify(
       {
-        // Written explicitly, matching server-config.ts's own
-        // DEFAULT_PORT, rather than left absent - a real value here
-        // is a visible, editable config knob; an absent key is
+        // Written explicitly rather than left absent - a real value
+        // here is a visible, editable config knob; an absent key is
         // invisible until something else is already using the
-        // default port, at which point the failure is a raw
-        // EADDRINUSE crash instead of an obvious setting to change.
-        port: 3000,
+        // default port. Only the local port: the Docker image sets
+        // PORT=3000 itself, and hosts like Railway set their own.
+        port: options.port ?? 3000,
         tokens: [{ hash: token.hash, scopes: ['content', 'theme', 'media'] }],
       },
       null,

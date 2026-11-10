@@ -27,7 +27,11 @@ WORKDIR /site
 COPY vhost/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Must match vhost/site.config.json's own "port" field.
+# Inside the container the site always listens on 3000, whatever port
+# vhost/site.config.json gives it for running locally (each new site gets
+# its own there, so several can run side by side). A host that sets PORT
+# itself, such as Railway, still wins over this.
+ENV PORT=3000
 EXPOSE 3000
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -5,6 +5,8 @@ import type { ChildProcess } from 'node:child_process';
 import { runDevSite, type DevSiteDeps } from '../../src/dev/dev-site.ts';
 import type { DevTunnelEvent } from '../../src/services/dev-tunnel.ts';
 import { createTmpSiteRoot, writeJson } from '../helpers/tmp-site.ts';
+import { loadSiteConfig } from '../../src/config.ts';
+import { writePidFile } from '../../src/services/pid-file.ts';
 import { captureOutput } from '../helpers/capture-output.ts';
 
 // A stand-in for the site (vhost/server.js) as npm run dev runs it: it
@@ -17,7 +19,10 @@ class FakeSite extends EventEmitter {
     super();
     this.env = env;
     if (port !== null) {
-      setImmediate(() => this.emit('message', { type: 'minamo-site-ready', port }));
+      // The real site listens on PORT when it's set (npm run dev moving it
+      // off a taken port), else on its configured one.
+      const listening = env.PORT ? Number(env.PORT) : port;
+      setImmediate(() => this.emit('message', { type: 'minamo-site-ready', port: listening }));
     } else {
       setImmediate(() => this.end(1, null));
     }
@@ -51,6 +56,7 @@ function setUp(options: { adminBaseUrl?: string | false; failToStart?: boolean }
     env: {},
     interactive: false,
     debounceMs: 1,
+    isPortFree: async () => true,
     spawnSite: (env) => {
       const site = new FakeSite(env, options.failToStart ? null : 4123);
       sites.push(site);
@@ -82,6 +88,7 @@ function setUp(options: { adminBaseUrl?: string | false; failToStart?: boolean }
     captured,
     changeTheme: (file = 'sections/hero.liquid') => themeChanged(file),
     isWatching: () => watching,
+    siteRoot,
     cleanup,
   };
 }
@@ -241,6 +248,47 @@ test('a tunnel that fails to open leaves the site running locally', async () => 
     assert.equal(setup.sites[0]?.exitCode, null, 'the site is still running');
     await session.stop();
     assert.equal(setup.sites[0]?.signalCode, 'SIGTERM');
+  } finally {
+    setup.cleanup();
+  }
+});
+
+test('when something else has the site\'s port, npm run dev runs it on the next free one this time, and says so', async () => {
+  const setup = setUp();
+  try {
+    const session = await runDevSite(setup.deps({ argv: ['--tunnel'], isPortFree: async (port) => port !== 4123 && port !== 4124 }));
+    assert.equal(setup.sites[0]?.env.PORT, '4125');
+    assert.deepEqual(setup.tunnels.map((tunnel) => tunnel.port), [4125], 'the tunnel follows the port the site really got');
+    assert.ok(setup.captured.stdout.some((line) => line.includes('Port 4123 is in use, so the site runs on 4125 this time')));
+
+    // A restart keeps the same port for the rest of the session.
+    await session.restart();
+    assert.equal(setup.sites[1]?.env.PORT, '4125');
+    await session.stop();
+  } finally {
+    setup.cleanup();
+  }
+});
+
+test('when the port is free, npm run dev leaves PORT alone', async () => {
+  const setup = setUp();
+  try {
+    const session = await runDevSite(setup.deps({ argv: ['--local'] }));
+    assert.equal(setup.sites[0]?.env.PORT, undefined);
+    await session.stop();
+  } finally {
+    setup.cleanup();
+  }
+});
+
+test('when it is this same site that has the port (already running), npm run dev does not start a second copy elsewhere', async () => {
+  const setup = setUp();
+  try {
+    // This test's own process stands in for the copy already running.
+    writePidFile(loadSiteConfig(setup.siteRoot), 4123);
+    const session = await runDevSite(setup.deps({ argv: ['--local'], isPortFree: async (port) => port !== 4123 }));
+    assert.equal(setup.sites[0]?.env.PORT, undefined, 'the site keeps its own port, and its own "already running" message');
+    await session.stop();
   } finally {
     setup.cleanup();
   }

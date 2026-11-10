@@ -61,6 +61,8 @@ Agreed with the owner (2026-11-10): `create-site` makes a genuinely minimal, neu
 | AK4 | Pictures set in sections and blocks are drop targets naming their field; a video never claims to be an image | `test/create-site/responsive-media.test.ts` |
 | AK5 | The site name, accent colour, font, contact details and social links come from site settings; empty ones are hidden and text is escaped before its line breaks are added | `test/create-site/site-settings.test.ts` |
 | AK6 | The starter's theme and content never mention Minamo, and nothing in it uses an em or en dash | `test/create-site/starter.test.ts` ("the starter stays neutral ...") |
+| AK7 | A new site gets a free port between 3000 and 3999 (checked on 0.0.0.0, localhost and IPv6), falling back to 3000; the Docker image sets `PORT=3000` | `test/services/free-port.test.ts`; `test/create-site/generate-site.test.ts` ("scaffoldSite writes the port it is given ...") |
+| AK8 | `npm run dev` runs the site on the next free port for the session when another program has its port, and the tunnel follows; not when it's this same site already running | `test/dev/dev-site.test.ts` ("when something else has the site's port ...", "when the port is free ...", "when it is this same site ...") |
 
 ## Future considerations (not scoped, for later discussion)
 

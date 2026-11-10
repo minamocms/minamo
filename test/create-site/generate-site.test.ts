@@ -79,6 +79,20 @@ test('scaffoldSite writes an explicit port in site.config.json, matching the rea
   }
 });
 
+test('scaffoldSite writes the port it is given (create-site picks a free one), and the Docker image always listens on 3000', () => {
+  const { targetDir, cleanup } = tmpTargetDir();
+  try {
+    scaffoldSite(targetDir, { port: 3456 });
+    const config = JSON.parse(readFileSync(join(targetDir, 'vhost', 'site.config.json'), 'utf-8')) as { port: number };
+    assert.equal(config.port, 3456);
+    const dockerfile = readFileSync(join(targetDir, 'vhost', 'Dockerfile'), 'utf-8');
+    assert.match(dockerfile, /^ENV PORT=3000$/m, 'inside a container the local port never applies');
+    assert.match(dockerfile, /^EXPOSE 3000$/m);
+  } finally {
+    cleanup();
+  }
+});
+
 test('scaffoldSite generates a real starter token: a valid sha256 hash in site.config.json, the raw value returned once', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {

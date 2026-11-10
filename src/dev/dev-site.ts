@@ -1,10 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { watch } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { loadSiteConfig } from '../config.ts';
 import { readAgentVersion } from '../routes/capabilities.ts';
 import { loadServerConfig } from '../server-config.ts';
 import { startDevTunnel, type DevTunnel, type DevTunnelDeps } from '../services/dev-tunnel.ts';
+import { isPortFree, nextFreePort } from '../services/free-port.ts';
 import { createLocalEditKey, DEV_CHILD_ENV, LOCAL_EDIT_KEY_ENV, localEditLink } from '../services/local-edit-link.ts';
+import { isProcessAlive, readPidFile } from '../services/pid-file.ts';
 import { createSiteConsole, type SiteConsole, type SiteConsoleStreams } from '../terminal/site-console.ts';
 import { openInBrowser, type Shortcut } from '../terminal/shortcuts.ts';
 
@@ -45,6 +48,7 @@ export interface DevSiteDeps {
   debounceMs?: number;
   // How long a stopping site gets before it's ended outright.
   stopTimeoutMs?: number;
+  isPortFree?: (port: number) => Promise<boolean>;
 }
 
 export interface DevSession {
@@ -100,6 +104,28 @@ async function chooseTunnel(deps: DevSiteDeps, terminal: SiteConsole, interactiv
   return !/^\s*n/i.test(answer);
 }
 
+// The site's own port, or, when something else already has it, the next
+// free one for this session only: two sites made before each got a port of
+// its own both use 3000, and that shouldn't stop working on one of them.
+// Not when it's this same site already running (npm start in another
+// terminal, say): a second copy would only confuse, so the site's own
+// "already running" message stands. npm start never does this.
+async function portForSession(siteRoot: string, port: number, terminal: SiteConsole, free: (port: number) => Promise<boolean>): Promise<number> {
+  if (await free(port)) {
+    return port;
+  }
+  const running = readPidFile(loadSiteConfig(siteRoot));
+  if (running && running.port === port && isProcessAlive(running.pid)) {
+    return port;
+  }
+  const next = await nextFreePort(port, { isFree: free });
+  if (next === null) {
+    return port;
+  }
+  terminal.out.info(`Port ${port} is in use, so the site runs on ${next} this time. To keep it there, set "port" in vhost/site.config.json.`);
+  return next;
+}
+
 export async function runDevSite(deps: DevSiteDeps): Promise<DevSession> {
   const vhostDir = deps.vhostDir;
   const siteRoot = resolve(vhostDir, '..');
@@ -115,6 +141,10 @@ export async function runDevSite(deps: DevSiteDeps): Promise<DevSession> {
   const localEdit = wantsTunnel && serverConfig.adminBaseUrl ? createLocalEditKey() : undefined;
 
   const childEnv: NodeJS.ProcessEnv = { ...env, [DEV_CHILD_ENV]: '1' };
+  const sessionPort = await portForSession(siteRoot, serverConfig.port, terminal, deps.isPortFree ?? isPortFree);
+  if (sessionPort !== serverConfig.port) {
+    childEnv.PORT = String(sessionPort);
+  }
   if (localEdit) {
     childEnv[LOCAL_EDIT_KEY_ENV] = localEdit.key;
   }
