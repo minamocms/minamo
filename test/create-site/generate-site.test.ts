@@ -51,6 +51,8 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     assert.ok(existsSync(join(targetDir, 'vhost', 'Dockerfile')));
     assert.ok(existsSync(join(targetDir, 'vhost', 'docker-entrypoint.sh')));
     assert.ok(existsSync(join(targetDir, '.dockerignore')));
+    assert.ok(existsSync(join(targetDir, '.railwayignore')), 'railway up leaves node_modules and the search index out');
+    assert.equal(existsSync(join(targetDir, 'railwayignore')), false);
     assert.equal(existsSync(join(targetDir, 'dockerignore')), false);
     // Deliberately not at the site root - see vhost/Dockerfile's own
     // comment for why (keeps the top level to content/theme/media/vhost).

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { RETIRED_SCRIPTS, SCAFFOLD_SCRIPTS, SERVER_JS, TEMPLATE_ROOT, scaffoldSite } from '../../src/create-site/generate-site.ts';
 import { changesBetween, compareVersions, mayBreak } from '../../src/upgrade/changelog.ts';
 import { finishUpgrade } from '../../src/upgrade/finish.ts';
-import { refreshOwnedFiles } from '../../src/upgrade/owned-files.ts';
+import { mergeIgnoreFile, refreshOwnedFiles } from '../../src/upgrade/owned-files.ts';
 import { requestedVersion, upgradedDependencies } from '../../src/upgrade/package-names.ts';
 import { readAgentVersion } from '../../src/routes/capabilities.ts';
 import { TEST_IDENTITY_ENV } from '../helpers/tmp-site.ts';
@@ -71,6 +71,7 @@ test('refreshOwnedFiles puts back the CMS\'s own files, keeps the developer\'s o
         'vhost/docker-entrypoint.sh': 'updated',
         'vhost/server.js': 'unchanged',
         '.dockerignore': 'unchanged',
+        '.railwayignore': 'unchanged',
         'vhost/package.json': 'updated',
       },
     );
@@ -109,6 +110,37 @@ test('refreshOwnedFiles removes a retired script (the old tunnel) left as the CM
       cleanup();
     }
   }
+});
+
+test('an upgrade puts back the CMS\'s .dockerignore and .railwayignore but keeps the patterns a site added, once, and creates a missing one', () => {
+  const { siteRoot, cleanup } = scaffolded();
+  try {
+    // A site that added its token file, and still has an older version's comment.
+    const dockerignore = join(siteRoot, '.dockerignore');
+    writeFileSync(dockerignore, '# An older version said this\nvhost/node_modules\nvhost/access.txt\n');
+    rmSync(join(siteRoot, '.railwayignore'));
+
+    const statuses = Object.fromEntries(refreshOwnedFiles(siteRoot, SOURCE).map((result) => [result.path, result.status]));
+
+    assert.equal(statuses['.dockerignore'], 'updated');
+    assert.equal(statuses['.railwayignore'], 'created');
+    const after = readFileSync(dockerignore, 'utf-8');
+    assert.ok(after.startsWith(readFileSync(join(TEMPLATE_ROOT, 'dockerignore'), 'utf-8')), 'the CMS\'s lines, as shipped');
+    assert.match(after, /# This site's own:\nvhost\/access\.txt\n$/);
+    assert.doesNotMatch(after, /An older version said this/);
+    assert.equal(readFileSync(join(siteRoot, '.railwayignore'), 'utf-8'), readFileSync(join(TEMPLATE_ROOT, 'railwayignore'), 'utf-8'));
+
+    // Again: kept once, nothing to change.
+    assert.ok(refreshOwnedFiles(siteRoot, SOURCE).every((result) => result.status === 'unchanged'));
+    assert.equal(after.match(/access\.txt/g)?.length, 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test('mergeIgnoreFile adds nothing when a site has no patterns of its own', () => {
+  assert.equal(mergeIgnoreFile('# ours\na\nb\n', '# theirs, old\na\n\nb\n'), '# ours\na\nb\n');
+  assert.equal(mergeIgnoreFile('a\n', null), 'a\n');
 });
 
 test('finishUpgrade updates content to the current format without committing it, and checks the site', async () => {

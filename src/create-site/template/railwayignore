@@ -1,0 +1,7 @@
+# Renamed to .railwayignore by scaffoldSite(), like "dockerignore". What
+# `railway up --no-gitignore` leaves out of the upload: the image installs
+# its own vhost/node_modules, and the search index in vhost/data is rebuilt.
+# Add your own lines below; npm run upgrade keeps them.
+vhost/node_modules
+vhost/data
+.DS_Store

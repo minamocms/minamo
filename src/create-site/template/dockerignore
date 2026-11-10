@@ -2,5 +2,6 @@
 # template's own "gitignore" -> ".gitignore"). Deliberately does NOT
 # exclude .git - the site root must be a real git repository at
 # runtime (services/startup-checks.ts), so .git has to reach the image.
+# Add your own lines below; npm run upgrade keeps them.
 vhost/node_modules
 vhost/data

@@ -19,6 +19,11 @@ export interface OwnedFilesSource {
   version: string;
 }
 
+function readIfThere(siteRoot: string, path: string): string | null {
+  const full = join(siteRoot, path);
+  return existsSync(full) ? readFileSync(full, 'utf-8') : null;
+}
+
 function place(siteRoot: string, path: string, contents: string, mode?: number): OwnedFileResult {
   const full = join(siteRoot, path);
   const before = existsSync(full) ? readFileSync(full, 'utf-8') : null;
@@ -32,6 +37,23 @@ function place(siteRoot: string, path: string, contents: string, mode?: number):
   return { path, status: before === null ? 'created' : 'updated' };
 }
 
+const THEIR_LINES = "# This site's own:";
+
+// An ignore file (.dockerignore, .railwayignore) is the CMS's lines with
+// the site's own added after them: an upgrade puts back the CMS's, as
+// shipped, and keeps every pattern the site added (a token file, say),
+// once. Comments aren't kept: most are an older version's own wording.
+export function mergeIgnoreFile(template: string, existing: string | null): string {
+  if (existing === null) {
+    return template;
+  }
+  const ours = new Set(template.split('\n').map((line) => line.trim()));
+  const theirs = [...new Set(existing.split('\n').map((line) => line.trim()))].filter(
+    (line) => line !== '' && !line.startsWith('#') && !ours.has(line),
+  );
+  return theirs.length === 0 ? template : `${template.replace(/\n*$/, '\n')}\n${THEIR_LINES}\n${theirs.join('\n')}\n`;
+}
+
 // The files in a site that belong to the CMS rather than to the site,
 // put back exactly as the installed version ships them - so an upgrade
 // brings its own Dockerfile, start-up script and scripts along, instead
@@ -40,7 +62,8 @@ function place(siteRoot: string, path: string, contents: string, mode?: number):
 // the installed version under the CMS's current name (never the name
 // before, @o-a/cms-agent), and the developer's own scripts and
 // dependencies are kept.
-// Nothing outside this list is ever touched: not the theme, content,
+// .dockerignore and .railwayignore keep the site's own lines (see
+// mergeIgnoreFile). Nothing outside this list is ever touched: not the theme, content,
 // site.config.json (tokens), or AGENTS.md.
 export function refreshOwnedFiles(siteRoot: string, source: OwnedFilesSource): OwnedFileResult[] {
   const read = (path: string) => readFileSync(join(source.templateRoot, path), 'utf-8');
@@ -48,7 +71,8 @@ export function refreshOwnedFiles(siteRoot: string, source: OwnedFilesSource): O
     place(siteRoot, 'vhost/Dockerfile', read('vhost/Dockerfile')),
     place(siteRoot, 'vhost/docker-entrypoint.sh', read('vhost/docker-entrypoint.sh'), 0o755),
     place(siteRoot, 'vhost/server.js', source.serverJs),
-    place(siteRoot, '.dockerignore', read('dockerignore')),
+    place(siteRoot, '.dockerignore', mergeIgnoreFile(read('dockerignore'), readIfThere(siteRoot, '.dockerignore'))),
+    place(siteRoot, '.railwayignore', mergeIgnoreFile(read('railwayignore'), readIfThere(siteRoot, '.railwayignore'))),
   ];
 
   const packagePath = join(siteRoot, 'vhost', 'package.json');

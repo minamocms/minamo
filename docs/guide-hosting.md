@@ -89,6 +89,24 @@ This same image runs unmodified on Fly, ECS, or any platform that runs a contain
 
 The Docker image above works as-is on any platform that (a) builds from a `Dockerfile` and (b) lets you mount a persistent volume at a fixed path (here, `/site`). Health-check against `GET /v1/capabilities` - it's a real, always-available endpoint that doubles as a liveness check, not a special route added for this purpose. Any platform-specific config (build settings, health check path, restart policy) is a thin layer on top of the same portable image - it never needs to change the image itself.
 
+#### Railway, step by step
+
+From the site folder, with the [Railway CLI](https://docs.railway.com/guides/cli) signed in:
+
+```
+railway init --name my-site
+railway add --service my-site
+railway volume add --mount-path /site
+railway variables --set RAILWAY_DOCKERFILE_PATH=vhost/Dockerfile --skip-deploys
+railway up --no-gitignore
+railway domain
+```
+
+- **`RAILWAY_DOCKERFILE_PATH` matters.** A `railway up` upload doesn't read `railway.json`, so without it Railway guesses how to build the site, can't, and the deploy fails with nothing more than "Deploy failed".
+- **`--no-gitignore`** sends `media/` (which git ignores) with the first deploy. `.railwayignore` leaves out `vhost/node_modules` and `vhost/data`; add anything secret of your own to it, such as a file holding an access token.
+- **Add the volume before the first deploy,** so the site starts on the disk that keeps it.
+- Then mint the site's access token on the live site, as in [Access tokens](#access-tokens). Later deploys are `npm run push`.
+
 What this explicitly does **not** cover: "any shared hosting." A host that can't run a persistent process, exec `git`, or mount a real disk (typical of classic shared PHP-style hosting) cannot run this today.
 
 ## Working on a site: npm run dev

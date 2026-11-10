@@ -122,10 +122,11 @@ export function scaffoldSite(targetDir: string, options: ScaffoldOptions = {}): 
   // before this was written).
   cpSync(TEMPLATE_ROOT, targetDir, {
     recursive: true,
-    filter: (source) => basename(source) !== 'gitignore' && basename(source) !== 'dockerignore',
+    filter: (source) => !['gitignore', 'dockerignore', 'railwayignore'].includes(basename(source)),
   });
   cpSync(join(TEMPLATE_ROOT, 'gitignore'), join(targetDir, '.gitignore'));
   cpSync(join(TEMPLATE_ROOT, 'dockerignore'), join(targetDir, '.dockerignore'));
+  cpSync(join(TEMPLATE_ROOT, 'railwayignore'), join(targetDir, '.railwayignore'));
 
   // content/drafts/ starts empty - not part of the static template
   // (nothing to copy), created directly so a fresh site has somewhere
@@ -201,7 +202,7 @@ export function scaffoldSite(targetDir: string, options: ScaffoldOptions = {}): 
   execFileSync('git', ['init', '--quiet'], { cwd: targetDir });
   commitPaths(
     targetDir,
-    ['theme', 'content', 'vhost', 'AGENTS.md', '.gitignore', '.dockerignore'],
+    ['theme', 'content', 'vhost', 'AGENTS.md', '.gitignore', '.dockerignore', '.railwayignore'],
     'chore: initial scaffold',
     CHECKPOINT_AUTHOR,
   );
