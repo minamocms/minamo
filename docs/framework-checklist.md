@@ -72,6 +72,7 @@ Found deploying a client's site (2026-11-10): `railway up` ignores `railway.json
 |---|---|---|
 | AL1 | A new site has a `.railwayignore` leaving out `vhost/node_modules` and `vhost/data`, and commits it | `test/create-site/generate-site.test.ts` ("N: scaffoldSite produces ...") |
 | AL2 | `npm run upgrade` puts back the CMS's `.dockerignore` and `.railwayignore`, keeps every pattern a site added (once, without old comments), and creates a missing one | `test/upgrade/upgrade.test.ts` ("an upgrade puts back the CMS's .dockerignore and .railwayignore ...", "mergeIgnoreFile adds nothing ...") |
+| AL3 | Every site has an `npm run mint-token` script that, run from `vhost/` as npm runs it, adds a token to the site above with any `--scopes` passed through; `npm run upgrade` adds it to existing sites | `test/create-site/mint-token.test.ts` ("npm run mint-token, run from vhost/ as npm would ..."); `test/create-site/generate-site.test.ts` ("scaffoldSite pins @minamocms/framework ...", the scripts); `test/upgrade/upgrade.test.ts` ("refreshOwnedFiles puts back the CMS's own files ...") |
 
 ## Future considerations (not scoped, for later discussion)
 

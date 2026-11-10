@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { scaffoldSite } from '../../src/create-site/generate-site.ts';
+import { SCAFFOLD_SCRIPTS, scaffoldSite } from '../../src/create-site/generate-site.ts';
 import { MintTokenError, mintToken, parseScopes } from '../../src/create-site/mint-token.ts';
 
 function scaffoldedSite(): { siteDir: string; cleanup: () => void } {
@@ -68,4 +68,28 @@ test('parseScopes defaults to all three scopes when none are given', () => {
 test('parseScopes accepts a comma-separated list and rejects an unknown scope', () => {
   assert.deepEqual(parseScopes('content,theme'), ['content', 'theme']);
   assert.throws(() => parseScopes('content,bogus'), (error: unknown) => error instanceof MintTokenError);
+});
+
+test('npm run mint-token, run from vhost/ as npm would, adds a token to the site above it, scopes passed through', () => {
+  const { siteDir, cleanup } = scaffoldedSite();
+  try {
+    // npm runs a script in the package's own folder (vhost/), with the
+    // package's bins on the PATH, and appends what follows `--`.
+    const [bin, ...scriptArgs] = SCAFFOLD_SCRIPTS['mint-token']!.split(' ');
+    assert.equal(bin, 'mint-token');
+    const cli = join(import.meta.dirname, '..', '..', 'src', 'create-site', 'mint-token-cli.ts');
+    const output = execFileSync(process.execPath, ['--experimental-strip-types', cli, ...scriptArgs, '--scopes', 'content'], {
+      cwd: join(siteDir, 'vhost'),
+      env: { ...process.env, MINAMO_PLAIN: '1' },
+    }).toString('utf-8');
+
+    const raw = output.match(/^\s+([A-Za-z0-9_-]{32,})$/m)?.[1];
+    assert.ok(raw, 'the new token is printed once');
+    const tokens = readConfig(siteDir).tokens;
+    assert.equal(tokens.length, 2);
+    assert.equal(tokens[1]?.hash, createHash('sha256').update(raw).digest('hex'));
+    assert.deepEqual(tokens[1]?.scopes, ['content']);
+  } finally {
+    cleanup();
+  }
 });

@@ -145,6 +145,7 @@ test('scaffoldSite pins @minamocms/framework to the exact installed version, and
     assert.equal(pkg.scripts.pull, 'pull-site');
     assert.equal(pkg.scripts.push, 'push-site');
     assert.equal(pkg.scripts.upgrade, 'upgrade-site');
+    assert.equal(pkg.scripts['mint-token'], 'mint-token ..');
   } finally {
     cleanup();
   }

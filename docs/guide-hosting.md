@@ -38,13 +38,13 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 
 ## Access tokens
 
-The site keeps only a sha256 hash of each token (`tokens` in `vhost/site.config.json`), so a lost token can't be recovered, only replaced. `mint-token <site-directory> [--scopes content,theme,media]` adds a new token (all three scopes by default), commits the changed config, and prints the raw token once. It never changes or removes existing tokens. Tokens are read only at boot, so **restart the site** before using the new one.
+The site keeps only a sha256 hash of each token (`tokens` in `vhost/site.config.json`), so a lost token can't be recovered, only replaced. From `vhost/`, `npm run mint-token` adds a new token (all three scopes by default; `npm run mint-token -- --scopes content,theme` for fewer), commits the changed config, and prints the raw token once. It never changes or removes existing tokens. Tokens are read only at boot, so **restart the site** before using the new one.
 
-- **Before the site is live:** from the site's root, run `npx -p @minamocms/framework mint-token .`, then restart. The config is git-tracked and baked into the image, so a first deploy starts with that token.
-- **On a live site:** a redeploy never replaces the volume's `vhost/site.config.json` (see Docker below), so a token minted locally is refused by the live site. Mint it where the site runs instead. For the scaffolded Docker image, open a shell in the container (`railway ssh`, `fly ssh console`, `docker exec`), run `cd /site/vhost && npx -p @minamocms/framework mint-token /site`, then restart the service and paste the token into the admin's **Change access token**.
+- **Before the site is live:** run `npm run mint-token` from `vhost/`, then restart. The config is git-tracked and baked into the image, so a first deploy starts with that token.
+- **On a live site:** a redeploy never replaces the volume's `vhost/site.config.json` (see Docker below), so a token minted locally is refused by the live site. Mint it where the site runs instead. For the scaffolded Docker image, open a shell in the container (`railway ssh`, `docker exec`), run `cd /site/vhost && npm run mint-token`, then restart the service and paste the token into the admin's **Change access token**.
 - **Removing a token** (one that may have leaked, not merely been lost): delete its entry from `tokens` where the site runs and restart. Entries are hashes and can't be told apart, so when unsure, clear the list and mint fresh tokens for every client.
 
-Always name the package with `-p @minamocms/framework`: a bare `npx mint-token` run anywhere the framework isn't installed fetches an unrelated npm package of the same name.
+`npm run mint-token` runs the site's own installed copy (the underlying command is `mint-token <site-directory> [--scopes ...]`). A site from before 0.16.2 gets the script from `npm run upgrade`; until then use `npx -p @minamocms/framework mint-token <site-directory>`, always naming the package with `-p`: a bare `npx mint-token` run anywhere the framework isn't installed fetches an unrelated npm package of the same name.
 
 ## Linking to the admin
 

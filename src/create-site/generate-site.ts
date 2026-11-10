@@ -86,6 +86,12 @@ export const SCAFFOLD_SCRIPTS: Record<string, string> = {
   // Upgrades the CMS itself (upgrade-site): shows what's new, installs
   // it, and updates the files in vhost/ that belong to the CMS.
   upgrade: 'upgrade-site',
+  // Adds an access token to this site (mint-token), the same way here and
+  // on a live server: `npm run mint-token` from vhost/, restricted with
+  // `-- --scopes content`. The site folder is always the one above, so
+  // there's none to give, and it runs the site's own installed copy:
+  // a bare `npx mint-token` fetches an unrelated package of that name.
+  'mint-token': 'mint-token ..',
 };
 
 // Scripts earlier versions gave every site and this one doesn't. npm run
