@@ -4,6 +4,10 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Changed
+
+- **Railway no longer reads `railway.json`.** It stopped reading them for every service on 1 December 2026 (services made after 28 August 2026 never could). Sites made with `create-site` don't have one and are unaffected. If you wrote your own and deploy straight from GitHub, set the variable `RAILWAY_DOCKERFILE_PATH=vhost/Dockerfile` on the service, then set **Healthcheck Path** `/v1/capabilities` and **Restart Policy** On failure in its settings, as the hosting guide now says. Docs only: nothing in the package changed.
+
 ## [0.16.2] - 2026-11-10
 
 ### Added
