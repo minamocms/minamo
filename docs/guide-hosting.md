@@ -102,7 +102,8 @@ railway up --no-gitignore
 railway domain
 ```
 
-- **`RAILWAY_DOCKERFILE_PATH` matters.** A `railway up` upload doesn't read `railway.json`, so without it Railway guesses how to build the site, can't, and the deploy fails with nothing more than "Deploy failed".
+- **`RAILWAY_DOCKERFILE_PATH` matters.** Railway doesn't read a `railway.json` (new services never could, and it stopped reading them for every service on 1 December 2026), so without it Railway guesses how to build the site, can't, and the deploy fails with nothing more than "Deploy failed".
+- **Then set the health check in Railway's dashboard,** under the service's **Settings > Deploy**: **Healthcheck Path** `/v1/capabilities` and **Restart Policy** On failure. With a health check, a release that can't start never replaces the one that's running.
 - **`--no-gitignore`** sends `media/` (which git ignores) with the first deploy. `.railwayignore` leaves out `vhost/node_modules` and `vhost/data`; add anything secret of your own to it, such as a file holding an access token.
 - **Add the volume before the first deploy,** so the site starts on the disk that keeps it.
 - Then mint the site's access token on the live site, as in [Access tokens](#access-tokens). Later deploys are `npm run push`.
