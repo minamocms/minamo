@@ -370,3 +370,85 @@ test('POST /v1/git/commit with no token is rejected with 401', async () => {
     cleanup();
   }
 });
+
+// The git routes need only the "content" scope, so they are confined
+// to content/: found in the November 2026 security audit, where a
+// content-only token read theme source and vhost/site.config.json
+// through git/show and rolled a theme file back through git/revert.
+test('GET /v1/git/show refuses a tracked file outside content/, in any spelling', async () => {
+  const { app, siteRoot, cleanup } = buildGitTestServer();
+  try {
+    writeAndCommit(siteRoot, 'vhost/site.config.json', JSON.stringify({ tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }] }), 'config');
+    writeAndCommit(siteRoot, 'theme/sections/hero.liquid', 'THEME SOURCE', 'add hero');
+
+    for (const path of [
+      'vhost/site.config.json',
+      'theme/sections/hero.liquid',
+      'content/../theme/sections/hero.liquid',
+      'content%2f..%2ftheme/sections/hero.liquid',
+      'content/%2e%2e/theme/sections/hero.liquid',
+      '%2563ontent/../theme/sections/hero.liquid',
+    ]) {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/v1/git/show/HEAD/${path}`,
+        headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+      });
+      assert.equal(response.statusCode, 404, path);
+      assert.ok(!response.body.includes('THEME SOURCE') && !response.body.includes('"hash"'), path);
+    }
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('GET /v1/git/log refuses a path outside content/', async () => {
+  const { app, siteRoot, cleanup } = buildGitTestServer();
+  try {
+    writeAndCommit(siteRoot, 'theme/sections/hero.liquid', 'THEME SOURCE', 'add hero');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/git/log?path=theme/sections/hero.liquid',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/git/revert refuses a path outside content/ and changes nothing', async () => {
+  const { app, siteRoot, cleanup } = buildGitTestServer();
+  try {
+    writeAndCommit(siteRoot, 'theme/sections/hero.liquid', 'OLD THEME', 'add hero');
+    const oldHash = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: siteRoot }).toString('utf-8').trim();
+    writeAndCommit(siteRoot, 'theme/sections/hero.liquid', 'NEW THEME', 'update hero');
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About')), 'add about');
+    const headBefore = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: siteRoot }).toString('utf-8').trim();
+
+    for (const paths of [
+      ['theme/sections/hero.liquid'],
+      ['vhost/site.config.json'],
+      ['content/../theme/sections/hero.liquid'],
+      // One bad path refuses the whole request, the good one included.
+      ['content/pages/about.json', 'theme/sections/hero.liquid'],
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/git/revert',
+        headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+        payload: { ref: oldHash, paths, message: 'x', author },
+      });
+      assert.equal(response.statusCode, 404, paths.join(', '));
+    }
+
+    assert.equal(readFileSync(join(siteRoot, 'theme/sections/hero.liquid'), 'utf-8'), 'NEW THEME');
+    assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: siteRoot }).toString('utf-8').trim(), headBefore);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});

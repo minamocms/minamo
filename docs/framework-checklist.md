@@ -74,6 +74,14 @@ Found deploying a client's site (2026-11-10): `railway up` ignores `railway.json
 | AL2 | `npm run upgrade` puts back the CMS's `.dockerignore` and `.railwayignore`, keeps every pattern a site added (once, without old comments), and creates a missing one | `test/upgrade/upgrade.test.ts` ("an upgrade puts back the CMS's .dockerignore and .railwayignore ...", "mergeIgnoreFile adds nothing ...") |
 | AL3 | Every site has an `npm run mint-token` script that, run from `vhost/` as npm runs it, adds a token to the site above with any `--scopes` passed through; `npm run upgrade` adds it to existing sites | `test/create-site/mint-token.test.ts` ("npm run mint-token, run from vhost/ as npm would ..."); `test/create-site/generate-site.test.ts` ("scaffoldSite pins @minamocms/framework ...", the scripts); `test/upgrade/upgrade.test.ts` ("refreshOwnedFiles puts back the CMS's own files ...") |
 
+## Group AM: Security audit, November 2026
+
+Found reading the code (2026-11-15): the git routes resolved paths against the site root while needing only the `content` scope
+
+| # | Criterion | Proof |
+|---|---|---|
+| AM1 | `GET /v1/git/log?path=`, `GET /v1/git/show/:ref/*` and `POST /v1/git/revert` act only on paths inside `content/`: a tracked file anywhere else (theme, `vhost/site.config.json`), in any spelling or encoding, is a `404`, and a revert naming one changes nothing and makes no commit | `test/routes/git.test.ts` ("GET /v1/git/show refuses a tracked file outside content/, in any spelling", "GET /v1/git/log refuses a path outside content/", "POST /v1/git/revert refuses a path outside content/ and changes nothing") |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

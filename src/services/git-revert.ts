@@ -4,7 +4,7 @@ import { relative } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import type { CommitAuthor } from './git.ts';
 import { commitPaths, isValidGitRef } from './git.ts';
-import { sanitisePath } from './path-safety.ts';
+import { sanitiseRepoContentPath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import { enqueue } from './write-queue.ts';
 
@@ -51,7 +51,10 @@ export function prepareRevertPaths(
     throw new RevertError('invalid-ref', `Ref does not resolve to a commit: "${ref}"`);
   }
 
-  const absolutePaths = relativePaths.map((p) => sanitisePath(config.siteRoot, p));
+  // content/ only (path-safety.ts's sanitiseRepoContentPath): a revert
+  // is a write, and with only the "content" scope it must never reach
+  // theme/ or vhost/site.config.json.
+  const absolutePaths = relativePaths.map((p) => sanitiseRepoContentPath(config.contentRoot, p));
   const repoRelativePaths = absolutePaths.map((p) => relative(config.siteRoot, p));
 
   // Validate every path exists at ref BEFORE touching any working-tree

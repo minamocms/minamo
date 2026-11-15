@@ -148,3 +148,26 @@ export function sanitisePath(root: string, requestedPath: string): string {
   // are (see publish.ts's rollback() comment).
   return resolved;
 }
+
+const CONTENT_PREFIX = 'content/';
+
+// Every request-supplied path the git routes act on (log, show and
+// revert, in services/git-history.ts and git-revert.ts) goes through
+// here, which confines them to content/. Those routes need only the
+// "content" scope, so resolving against the site root let a
+// content-only token read any tracked file at any revision (theme
+// source, vhost/site.config.json and its token hashes) and roll any
+// of them back, including the token list itself. The path is still
+// written repo-relative ("content/pages/about.json"), as the admin and
+// the docs already have it: only what it may name changed.
+//
+// The prefix is checked on the raw string, before sanitisePath decodes
+// anything, so an encoded prefix is refused rather than trusted; what
+// follows it is then sanitised against the content root, which is what
+// stops "content/../theme/..." in any encoding.
+export function sanitiseRepoContentPath(contentRoot: string, repoRelativePath: string): string {
+  if (!repoRelativePath.startsWith(CONTENT_PREFIX)) {
+    throw new PathSafetyError('outside-root', `Path must be inside content/: "${repoRelativePath}"`);
+  }
+  return sanitisePath(contentRoot, repoRelativePath.slice(CONTENT_PREFIX.length));
+}

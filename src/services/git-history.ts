@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { relative } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { isValidGitRef } from './git.ts';
-import { sanitisePath } from './path-safety.ts';
+import { sanitiseRepoContentPath } from './path-safety.ts';
 
 export interface LogEntry {
   hash: string;
@@ -63,7 +63,7 @@ export function getCommitLog(config: SiteConfig, options: { path?: string; limit
     // return value is used directly - git resolves an absolute
     // pathspec fine, same as git.ts's own `git add -- <absolutePaths>`
     // already relies on.
-    args.push('--', sanitisePath(config.siteRoot, options.path));
+    args.push('--', sanitiseRepoContentPath(config.contentRoot, options.path));
   }
 
   const raw = execFileSync('git', args, { cwd: config.siteRoot }).toString('utf-8');
@@ -125,7 +125,7 @@ export function readFileAtRevision(config: SiteConfig, ref: string, relativePath
   // repo-relative string from sanitisePath's own already-validated
   // absolute result (not re-decoding relativePath a second time)
   // guarantees the exact same string sanitisePath vetted.
-  const repoRelativePath = relative(config.siteRoot, sanitisePath(config.siteRoot, relativePath));
+  const repoRelativePath = relative(config.siteRoot, sanitiseRepoContentPath(config.contentRoot, relativePath));
 
   try {
     execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {
