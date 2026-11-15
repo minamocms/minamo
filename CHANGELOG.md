@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-11-15
+
 ### Security
 
 - **History, old versions and restoring are limited to `content/`.** `GET /v1/git/log?path=`, `GET /v1/git/show/:ref/*` and `POST /v1/git/revert` need only the `content` scope, but accepted any tracked file in the site. An access token with only that scope could read the theme's source and `vhost/site.config.json` at any revision, and put any of those files back to an older version, including an older list of access tokens. A path outside `content/` is now refused with `404`. Paths are still written from the site root (`content/pages/about.json`), so nothing that already used these for content changes. If a content-only token was ever given to someone who should not have seen the theme, treat the theme's source as seen.
