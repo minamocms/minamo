@@ -81,6 +81,13 @@ Found reading the code (2026-11-15): the git routes resolved paths against the s
 | # | Criterion | Proof |
 |---|---|---|
 | AM1 | `GET /v1/git/log?path=`, `GET /v1/git/show/:ref/*` and `POST /v1/git/revert` act only on paths inside `content/`: a tracked file anywhere else (theme, `vhost/site.config.json`), in any spelling or encoding, is a `404`, and a revert naming one changes nothing and makes no commit | `test/routes/git.test.ts` ("GET /v1/git/show refuses a tracked file outside content/, in any spelling", "GET /v1/git/log refuses a path outside content/", "POST /v1/git/revert refuses a path outside content/ and changes nothing") |
+| AM2 | `contentRelativePath` returns a page or menu path in one canonical form however it was written (`./`, `//`, percent-encoded), and what it returns is unchanged by `sanitisePath` decoding it again | `test/services/path-safety.test.ts` ("returns a page or menu path in one canonical form", "is unchanged by sanitisePath decoding it again") |
+| AM3 | It refuses everything that is not a `.json` file under `pages/` or `menus/`: `settings.json`, `redirects.json`, anything under `drafts/`, dot files, other extensions, and any name a second decoding would change | `path-safety.test.ts` ("refuses everything that is not a page or a menu file") |
+| AM4 | `GET /v1/content/*` serves only pages and menus: an unpublished draft, `settings.json` and `redirects.json` are `404` in every spelling, including double percent-encoding | `test/routes/content.test.ts` ("serves only pages and menus, however the path is written") |
+| AM5 | `DELETE /v1/content/*` never removes anything but a page or a menu | `content.test.ts` ("never removes anything but a page or a menu") |
+| AM6 | A draft is only ever saved or discarded for a page or a menu, and a path written another way is the same draft | `test/services/drafts.test.ts` ("a draft is only ever saved or discarded for a page or a menu") |
+| AM7 | A menu path written another way is still validated as a menu, not as a page | `drafts.test.ts` ("a menu path written another way is still validated as a menu") |
+| AM8 | Publishing, unpublishing and re-publishing act only on pages and menus, and the same file named twice in two spellings is a duplicate | `test/services/publish.test.ts` ("act only on pages and menus") |
 
 ## Future considerations (not scoped, for later discussion)
 

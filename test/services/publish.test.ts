@@ -8,6 +8,7 @@ import { saveDraft } from '../../src/services/drafts.ts';
 import { computeEtag } from '../../src/services/etag.ts';
 import { movePage } from '../../src/services/move.ts';
 import { PublishError, publishDrafts, publishPage, unpublishPage } from '../../src/services/publish.ts';
+import { PathSafetyError } from '../../src/services/path-safety.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, redirectTargetFor, writeAndCommit } from '../helpers/tmp-site.ts';
 
@@ -44,15 +45,15 @@ function log(siteRoot: string, format: string): string {
 test('C4: publishing promotes the draft over the live file, deletes the draft, and creates exactly one commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(page('Old')));
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('Old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', page('New'), liveEtag(page('Old')));
+    await saveDraft(config, themeSchemas, 'pages/about.json', page('New'), liveEtag(page('Old')));
     const before = commitCount(siteRoot);
 
-    await publishDrafts(config, themeSchemas, ['about.json'], 'publish about', author);
+    await publishDrafts(config, themeSchemas, ['pages/about.json'], 'publish about', author);
 
-    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'about.json'), 'utf-8')), page('New'));
-    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'pages/about.json'), 'utf-8')), page('New'));
+    assert.equal(existsSync(join(config.draftsRoot, 'pages/about.json')), false);
     assert.equal(commitCount(siteRoot), before + 1);
   } finally {
     cleanup();
@@ -62,11 +63,11 @@ test('C4: publishing promotes the draft over the live file, deletes the draft, a
 test('C5: the publish commit author is the identity supplied with the request, not a fixed agent identity', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(page('Old')));
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('Old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', page('New'), liveEtag(page('Old')));
+    await saveDraft(config, themeSchemas, 'pages/about.json', page('New'), liveEtag(page('Old')));
 
-    await publishDrafts(config, themeSchemas, ['about.json'], 'publish about', {
+    await publishDrafts(config, themeSchemas, ['pages/about.json'], 'publish about', {
       name: 'Alex Author',
       email: 'alex@example.com',
     });
@@ -81,27 +82,27 @@ test('C5: the publish commit author is the identity supplied with the request, n
 test('C6: publishing multiple drafts in one call is atomic: if one fails validation, no files change and no commit is created', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/a.json', JSON.stringify(page('A-old')));
-    writeAndCommit(siteRoot, 'content/b.json', JSON.stringify(page('B-old')));
+    writeAndCommit(siteRoot, 'content/pages/a.json', JSON.stringify(page('A-old')));
+    writeAndCommit(siteRoot, 'content/pages/b.json', JSON.stringify(page('B-old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'a.json', page('A-new'), liveEtag(page('A-old')));
+    await saveDraft(config, themeSchemas, 'pages/a.json', page('A-new'), liveEtag(page('A-old')));
     // Written directly, bypassing saveDraft's own validation, so there
     // is an invalid draft on disk for publishDrafts to reject.
     mkdirSync(config.draftsRoot, { recursive: true });
-    writeFileSync(join(config.draftsRoot, 'b.json'), JSON.stringify({ schemaVersion: 1, title: 'B-new' }));
+    writeFileSync(join(config.draftsRoot, 'pages/b.json'), JSON.stringify({ schemaVersion: 1, title: 'B-new' }));
 
     const before = commitCount(siteRoot);
 
     await assert.rejects(
-      publishDrafts(config, themeSchemas, ['a.json', 'b.json'], 'publish both', author),
+      publishDrafts(config, themeSchemas, ['pages/a.json', 'pages/b.json'], 'publish both', author),
       (error: unknown) => error instanceof PublishError && error.reason === 'validation-failed',
     );
 
     assert.equal(commitCount(siteRoot), before);
-    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'a.json'), 'utf-8')), page('A-old'));
-    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'b.json'), 'utf-8')), page('B-old'));
-    assert.ok(existsSync(join(config.draftsRoot, 'a.json')), 'draft a should be untouched');
-    assert.ok(existsSync(join(config.draftsRoot, 'b.json')), 'draft b should be untouched');
+    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'pages/a.json'), 'utf-8')), page('A-old'));
+    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'pages/b.json'), 'utf-8')), page('B-old'));
+    assert.ok(existsSync(join(config.draftsRoot, 'pages/a.json')), 'draft a should be untouched');
+    assert.ok(existsSync(join(config.draftsRoot, 'pages/b.json')), 'draft b should be untouched');
   } finally {
     cleanup();
   }
@@ -110,13 +111,13 @@ test('C6: publishing multiple drafts in one call is atomic: if one fails validat
 test('C8 (mechanics only, renderer 404 half proven in Group D): unpublish sets published:false and commits with the supplied author', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(page('About')));
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About')));
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
-    await unpublishPage(config, 'about.json', 'unpublish about', author);
+    await unpublishPage(config, 'pages/about.json', 'unpublish about', author);
 
-    const updated = JSON.parse(readFileSync(join(config.contentRoot, 'about.json'), 'utf-8')) as {
+    const updated = JSON.parse(readFileSync(join(config.contentRoot, 'pages/about.json'), 'utf-8')) as {
       published: boolean;
     };
     assert.equal(updated.published, false);
@@ -130,13 +131,13 @@ test('C8 (mechanics only, renderer 404 half proven in Group D): unpublish sets p
 test('publishPage sets published:true on a live page in place and commits with the supplied author', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify({ ...page('About'), published: false }));
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify({ ...page('About'), published: false }));
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
-    await publishPage(config, 'about.json', 'publish about', author);
+    await publishPage(config, 'pages/about.json', 'publish about', author);
 
-    const updated = JSON.parse(readFileSync(join(config.contentRoot, 'about.json'), 'utf-8')) as {
+    const updated = JSON.parse(readFileSync(join(config.contentRoot, 'pages/about.json'), 'utf-8')) as {
       published: boolean;
       title: string;
     };
@@ -156,16 +157,16 @@ test('publishPage leaves a pending draft alone - it only changes what is already
     // ETag - NO_PRIOR_FILE_ETAG only satisfies the null-etag case where
     // neither a draft nor a live file exists yet.
     const livePage = { ...page('About'), published: false };
-    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(livePage));
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(livePage));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', page('Edited in a draft'), liveEtag(livePage));
+    await saveDraft(config, themeSchemas, 'pages/about.json', page('Edited in a draft'), liveEtag(livePage));
 
-    await publishPage(config, 'about.json', 'publish about', author);
+    await publishPage(config, 'pages/about.json', 'publish about', author);
 
     // The whole point of a flag flip over promoting the draft: unrelated
     // pending edits must not go live as a side effect.
-    assert.ok(existsSync(join(config.draftsRoot, 'about.json')), 'the draft should survive untouched');
-    const live = JSON.parse(readFileSync(join(config.contentRoot, 'about.json'), 'utf-8')) as { title: string };
+    assert.ok(existsSync(join(config.draftsRoot, 'pages/about.json')), 'the draft should survive untouched');
+    const live = JSON.parse(readFileSync(join(config.contentRoot, 'pages/about.json'), 'utf-8')) as { title: string };
     assert.equal(live.title, 'About', 'the live file keeps its own title, not the draft\'s');
   } finally {
     cleanup();
@@ -180,7 +181,7 @@ test('publishPage on a path with no live page is page-not-found, never a silent 
     const before = commitCount(siteRoot);
 
     await assert.rejects(
-      () => publishPage(config, 'never-existed.json', 'publish nothing', author),
+      () => publishPage(config, 'pages/never-existed.json', 'publish nothing', author),
       (error: unknown) => error instanceof PublishError && error.reason === 'page-not-found',
     );
     assert.equal(commitCount(siteRoot), before, 'a failed flip creates no commit');
@@ -192,31 +193,31 @@ test('publishPage on a path with no live page is page-not-found, never a silent 
 test('C9: a write failure partway through a multi-file publish rolls back cleanly, no partial writes, no staged-but-uncommitted state', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/a.json', JSON.stringify(page('A-old')));
+    writeAndCommit(siteRoot, 'content/pages/a.json', JSON.stringify(page('A-old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'a.json', page('A-new'), liveEtag(page('A-old')));
-    await saveDraft(config, themeSchemas, 'foo/bar.json', page('B-new'), NO_PRIOR_FILE_ETAG);
+    await saveDraft(config, themeSchemas, 'pages/a.json', page('A-new'), liveEtag(page('A-old')));
+    await saveDraft(config, themeSchemas, 'pages/foo/bar.json', page('B-new'), NO_PRIOR_FILE_ETAG);
 
-    // Pre-create content/foo as a plain file, not a directory, so the
+    // Pre-create content/pages/foo as a plain file, not a directory, so the
     // second entry's mkdirSync fails with a real, non-mocked fs error
     // partway through the batch, after the first entry already wrote
     // successfully.
-    writeFileSync(join(config.contentRoot, 'foo'), 'not a directory');
+    writeFileSync(join(config.contentRoot, 'pages', 'foo'), 'not a directory');
 
     const before = commitCount(siteRoot);
 
     await assert.rejects(
-      publishDrafts(config, themeSchemas, ['a.json', 'foo/bar.json'], 'publish both', author),
+      publishDrafts(config, themeSchemas, ['pages/a.json', 'pages/foo/bar.json'], 'publish both', author),
       (error: unknown) => error instanceof PublishError && error.reason === 'write-failed',
     );
 
     assert.equal(commitCount(siteRoot), before, 'no commit should be created');
     assert.deepEqual(
-      JSON.parse(readFileSync(join(config.contentRoot, 'a.json'), 'utf-8')),
+      JSON.parse(readFileSync(join(config.contentRoot, 'pages/a.json'), 'utf-8')),
       page('A-old'),
       'a.json must be rolled back to its original content',
     );
-    assert.ok(existsSync(join(config.draftsRoot, 'a.json')), 'draft a must be restored');
+    assert.ok(existsSync(join(config.draftsRoot, 'pages/a.json')), 'draft a must be restored');
 
     const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: siteRoot })
       .toString('utf-8')
@@ -302,6 +303,37 @@ test('E5 (menus): publishing a menu never touches redirects.json (menus have no 
     // exactly as-is - publishing a menu has no redirect-clearing
     // concept at all, unlike pages/posts.
     assert.equal(redirectTargetFor(config, '/menus/main'), '/somewhere');
+  } finally {
+    cleanup();
+  }
+});
+
+// Security audit, November 2026 (AM8).
+test('publishing, unpublishing and re-publishing act only on pages and menus, and the same file named twice in two spellings is a duplicate', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/settings.json', JSON.stringify(page('Not a page')));
+    writeAndCommit(siteRoot, 'content/pages/a.json', JSON.stringify(page('A-old')));
+    const config = loadSiteConfig(siteRoot);
+    // A draft put where the old code would have accepted one.
+    mkdirSync(config.draftsRoot, { recursive: true });
+    writeFileSync(join(config.draftsRoot, 'settings.json'), JSON.stringify(page('Overwritten')));
+    const before = commitCount(siteRoot);
+
+    for (const path of ['settings.json', './settings.json', 'redirects.json', 'drafts/pages/a.json']) {
+      await assert.rejects(publishDrafts(config, themeSchemas, [path], 'publish', author), (error: unknown) => error instanceof PathSafetyError, path);
+      await assert.rejects(unpublishPage(config, path, 'unpublish', author), (error: unknown) => error instanceof PathSafetyError, path);
+      await assert.rejects(publishPage(config, path, 'publish', author), (error: unknown) => error instanceof PathSafetyError, path);
+    }
+    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'settings.json'), 'utf-8')), page('Not a page'));
+    assert.equal(commitCount(siteRoot), before);
+
+    await saveDraft(config, themeSchemas, 'pages/a.json', page('A-new'), liveEtag(page('A-old')));
+    await assert.rejects(
+      publishDrafts(config, themeSchemas, ['pages/a.json', './pages/a.json'], 'publish twice', author),
+      (error: unknown) => error instanceof PublishError && error.reason === 'duplicate-path',
+    );
+    assert.equal(commitCount(siteRoot), before);
   } finally {
     cleanup();
   }

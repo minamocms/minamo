@@ -3,7 +3,7 @@ import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from './fs-walk.ts';
 import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
-import { sanitisePath } from './path-safety.ts';
+import { contentRelativePath, sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import {
   RedirectError,
@@ -59,6 +59,7 @@ export function prepareDeleteContent(
   relativePath: string,
   redirectTo: string | undefined,
 ): PreparedOperation {
+  relativePath = contentRelativePath(relativePath);
   const livePath = sanitisePath(config.contentRoot, relativePath);
   if (!existsSync(livePath)) {
     throw new DeleteContentError('page-not-found', `No live page found at "${relativePath}"`);

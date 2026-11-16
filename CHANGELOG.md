@@ -4,6 +4,10 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Security
+
+- **The content and drafts routes only ever act on pages and menus.** `GET` and `DELETE /v1/content/*`, `GET`, `PUT` and `DELETE /v1/drafts/*`, publishing and unpublishing accepted any path under `content/`. The check that kept them away from unpublished drafts, `settings.json` and `redirects.json` looked at the path as it was sent, while the file opened was the path after decoding, so writing the path another way (`./drafts/...`, or percent-encoded twice) got past it. An access token with the `content` scope could read an unpublished draft through the live content route, delete `settings.json` or `redirects.json`, and save and publish a draft over either. A path that is not a `.json` file under `pages/` or `menus/` is now refused with `404`, however it is written. File and folder names must use letters, digits, `.`, `_` and `-` only, as `npm run pull` and `npm run push` already required.
+
 ## [0.16.3] - 2026-11-15
 
 ### Security

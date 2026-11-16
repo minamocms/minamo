@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PathSafetyError, sanitisePath } from '../../src/services/path-safety.ts';
+import { contentRelativePath, PathSafetyError, sanitisePath } from '../../src/services/path-safety.ts';
 import { createTmpSiteRoot } from '../helpers/tmp-site.ts';
 
 test('B3: a content path containing ".." is rejected before any fs call', () => {
@@ -144,6 +144,68 @@ test('a path containing a null byte is rejected as a PathSafetyError, not a raw 
       () => sanitisePath(siteRoot, `pages/x${String.fromCharCode(0)}y.json`),
       (error: unknown) => error instanceof PathSafetyError && error.reason === 'invalid-path',
     );
+  } finally {
+    cleanup();
+  }
+});
+
+// Security audit, November 2026 (AM2, AM3): the one form in which a
+// request names a page or a menu.
+test('contentRelativePath returns a page or menu path in one canonical form, however it was written', () => {
+  for (const written of ['pages/about.json', './pages/about.json', 'pages//about.json', 'pages/./about.json', 'pages%2Fabout.json', 'pages/about%2Ejson']) {
+    assert.equal(contentRelativePath(written), 'pages/about.json', written);
+  }
+  assert.equal(contentRelativePath('pages/blog/2026/hello-world.json'), 'pages/blog/2026/hello-world.json');
+  assert.equal(contentRelativePath('pages/404.json'), 'pages/404.json');
+  assert.equal(contentRelativePath('./menus/main.json'), 'menus/main.json');
+});
+
+test('contentRelativePath refuses everything that is not a page or a menu file', () => {
+  const refused = [
+    // What sits beside pages/ and menus/ in content/.
+    'settings.json',
+    'redirects.json',
+    './settings.json',
+    'drafts/pages/about.json',
+    './drafts/pages/about.json',
+    'drafts%2Fpages%2Fabout.json',
+    'pages/../settings.json',
+    'pages/%2e%2e/settings.json',
+    '/pages/about.json',
+    '%2Fpages%2Fabout.json',
+    // Not a .json file, or not a file at all.
+    'pages',
+    'pages/',
+    'pages/about',
+    'pages/about.json/',
+    'pages/about.liquid',
+    'pages/.json',
+    'pages/.hidden.json',
+    'pages/.git/config.json',
+    'other/about.json',
+    'Pages/about.json',
+    '',
+    '.',
+    // Anything a second decoding would change, or a name would not hold.
+    'pages/a%2562.json',
+    'pages/a%20b.json',
+    'pages/caf%C3%A9.json',
+    'pages/a\\b.json',
+    `pages/a${String.fromCharCode(0)}b.json`,
+    'pages/%E0%A4%A.json',
+  ];
+  for (const written of refused) {
+    assert.throws(() => contentRelativePath(written), (error: unknown) => error instanceof PathSafetyError, JSON.stringify(written));
+  }
+});
+
+test('what contentRelativePath returns is unchanged by sanitisePath decoding it again', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    for (const written of ['pages/about.json', './pages/blog/a.b_c-1.json', 'menus%2Fmain.json']) {
+      const canonical = contentRelativePath(written);
+      assert.equal(sanitisePath(siteRoot, canonical), join(siteRoot, canonical));
+    }
   } finally {
     cleanup();
   }

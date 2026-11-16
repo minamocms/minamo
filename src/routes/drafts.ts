@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest 
 import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from '../services/content-read.ts';
 import { DraftError, discardDraft, saveDraft } from '../services/drafts.ts';
-import { PathSafetyError } from '../services/path-safety.ts';
+import { contentRelativePath, PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
@@ -22,7 +22,7 @@ async function handleReadDraft(
 ): Promise<void> {
   const relativePath = request.params['*'];
   try {
-    const { bytes, etag } = readContentFile(config.draftsRoot, relativePath);
+    const { bytes, etag } = readContentFile(config.draftsRoot, contentRelativePath(relativePath));
     reply.header('etag', etag).type('application/json; charset=utf-8').send(bytes);
   } catch (error) {
     if (error instanceof PathSafetyError || (error instanceof ContentReadError && error.reason === 'not-found')) {

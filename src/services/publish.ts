@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { GitOperationError, commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
-import { sanitisePath } from './path-safety.ts';
+import { contentRelativePath, sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import { loadRedirects, removeRedirectForPath, serialiseRedirects } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
@@ -134,8 +134,13 @@ function rollbackOrRethrow(snapshots: FileSnapshot[], cause: unknown, redirects?
 export function preparePublishDrafts(
   config: SiteConfig,
   themeSchemas: ThemeSchemas,
-  relativePaths: string[],
+  requestedPaths: string[],
 ): PreparedOperation {
+  // Each path in its one canonical form first (path-safety.ts), so that
+  // the duplicate check below, the schema chosen and the files written
+  // all mean the same file.
+  const relativePaths = requestedPaths.map((requested) => contentRelativePath(requested));
+
   // Reject duplicates up front: without this, a repeated path's live-
   // file snapshot would capture already-overwritten state instead of
   // the true original, corrupting any later rollback.
@@ -285,6 +290,7 @@ async function unpublishPageJob(
   message: string,
   author: CommitAuthor,
 ): Promise<void> {
+  relativePath = contentRelativePath(relativePath);
   const livePath = sanitisePath(config.contentRoot, relativePath);
 
   let original: Buffer;
@@ -343,6 +349,7 @@ async function publishPageJob(
   message: string,
   author: CommitAuthor,
 ): Promise<void> {
+  relativePath = contentRelativePath(relativePath);
   const livePath = sanitisePath(config.contentRoot, relativePath);
 
   let original: Buffer;

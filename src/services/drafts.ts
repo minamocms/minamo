@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from './content-read.ts';
 import { computeEtag, etagsMatch } from './etag.ts';
-import { sanitisePath } from './path-safety.ts';
+import { contentRelativePath, sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import type { ThemeSchemas, ValidationError } from './validation.ts';
 import { validateContent } from './validation.ts';
@@ -68,6 +68,9 @@ async function saveDraftJob(
   content: unknown,
   expectedEtag: string,
 ): Promise<string> {
+  // Everything below (the file written, the ETag read, which schema
+  // validates it) uses this one form of the path.
+  relativePath = contentRelativePath(relativePath);
   const draftPath = sanitisePath(config.draftsRoot, relativePath);
 
   // The If-Match check happens here, inside the queued job, never at
@@ -118,6 +121,7 @@ async function saveDraftJob(
 }
 
 async function discardDraftJob(config: SiteConfig, relativePath: string): Promise<void> {
+  relativePath = contentRelativePath(relativePath);
   const draftPath = sanitisePath(config.draftsRoot, relativePath);
   // Idempotent, matching DELETE semantics: silently succeed if the
   // draft is already absent rather than inventing a not-found error
@@ -159,6 +163,7 @@ export async function prepareSaveDraft(
   content: unknown,
   expectedEtag: string,
 ): Promise<PreparedOperation & { etag: string }> {
+  relativePath = contentRelativePath(relativePath);
   const draftPath = sanitisePath(config.draftsRoot, relativePath);
   const existedBefore = existsSync(draftPath);
   const originalBytes = existedBefore ? readFileSync(draftPath) : null;
@@ -184,6 +189,7 @@ export async function prepareSaveDraft(
 }
 
 export async function prepareDiscardDraft(config: SiteConfig, relativePath: string): Promise<PreparedOperation> {
+  relativePath = contentRelativePath(relativePath);
   const draftPath = sanitisePath(config.draftsRoot, relativePath);
   const existedBefore = existsSync(draftPath);
   const originalBytes = existedBefore ? readFileSync(draftPath) : null;

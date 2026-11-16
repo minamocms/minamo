@@ -1,5 +1,5 @@
 import { realpathSync } from 'node:fs';
-import { dirname, isAbsolute, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, posix, resolve, sep } from 'node:path';
 
 // POSIX-only by deliberate scope decision: this agent is self-hosted on a
 // server with a real git binary, not a target for Windows deployment.
@@ -11,6 +11,7 @@ export type PathSafetyReason =
   | 'outside-root'
   | 'resolves-to-root'
   | 'symlink-escape'
+  | 'not-content'
   | 'invalid-path';
 
 export class PathSafetyError extends Error {
@@ -170,4 +171,50 @@ export function sanitiseRepoContentPath(contentRoot: string, repoRelativePath: s
     throw new PathSafetyError('outside-root', `Path must be inside content/: "${repoRelativePath}"`);
   }
   return sanitisePath(contentRoot, repoRelativePath.slice(CONTENT_PREFIX.length));
+}
+
+// pages/ or menus/, any depth, a .json file, and no segment that is
+// empty, starts with a dot, or holds anything but a name's own
+// characters. Checked against the whole canonical path. The same shape
+// the pull and push tools already require of every path a live site
+// lists (CONTENT_PATH in site-sync/live-content.ts).
+const CONTENT_FILE = /^(?:pages|menus)\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.json$/;
+
+// The one way a request names a page or a menu (security audit,
+// November 2026). Every route and service that reads, saves, publishes
+// or deletes content by a request-supplied path puts it through here
+// first and works with what comes back, never with what was sent.
+//
+// Two things were wrong before. The content and drafts routes accepted
+// any path under content/, so a draft could be saved, and then
+// published, over content/settings.json or content/redirects.json, or
+// as a file that is no page at all. And the checks made on a path
+// (is it a reserved name, is it a menu, has this publish named it
+// twice) looked at the path as sent, while the file opened was the path
+// after sanitisePath had decoded and resolved it. "./drafts/pages/a.json"
+// and "drafts%2Fpages%2Fa.json" both named an unpublished draft to the
+// file system and neither looked reserved, so the live content route
+// served drafts; "./menus/main.json" was validated as a page.
+//
+// So: decode once here, as sanitisePath does, refuse anything that is
+// not plainly a page or menu file, and return the path in the one form
+// every later check and sanitisePath itself then agree on. The result
+// holds no "%", no ".", ".." or empty segment and no backslash, so
+// sanitisePath's own decoding changes nothing in it.
+export function contentRelativePath(requestedPath: string): string {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(requestedPath);
+  } catch {
+    throw new PathSafetyError('malformed-encoding', `Path contains malformed percent-encoding: "${requestedPath}"`);
+  }
+  if (isAbsolute(decoded) || decoded.split('/').includes('..')) {
+    throw new PathSafetyError('traversal-segment', `Path must be relative and must not contain ".." segments: "${requestedPath}"`);
+  }
+  // "./pages//about.json" names the same file as "pages/about.json".
+  const canonical = posix.normalize(decoded);
+  if (!CONTENT_FILE.test(canonical)) {
+    throw new PathSafetyError('not-content', `Path does not name a page or a menu: "${requestedPath}"`);
+  }
+  return canonical;
 }

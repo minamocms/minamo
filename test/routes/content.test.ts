@@ -536,3 +536,66 @@ test('GET /v1/content with no token is rejected with 401', async () => {
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM4): the reserved-name check looked
+// at the path as sent, while the file read was the path after decoding
+// and resolving, so a draft or the site settings could be read through
+// the live content route by writing the path another way.
+test('GET /v1/content/* serves only pages and menus, however the path is written', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeJson(siteRoot, 'content/pages/about.json', page('About', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/secret.json', page('Unpublished Secret', 'page'));
+    writeJson(siteRoot, 'content/settings.json', { secretSetting: 'x' });
+    writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, redirects: [] });
+    const get = (path: string) => app.inject({ method: 'GET', url: `/v1/content/${path}`, headers: { authorization: `Bearer ${CONTENT_TOKEN}` } });
+
+    for (const path of [
+      'drafts/pages/secret.json',
+      './drafts/pages/secret.json',
+      'drafts%2Fpages%2Fsecret.json',
+      'drafts%252Fpages%252Fsecret.json',
+      'pages/..%2Fdrafts/pages/secret.json',
+      'settings.json',
+      './settings.json',
+      'settings%252Ejson',
+      'redirects.json',
+      'pages/%2E%2E/redirects.json',
+    ]) {
+      const response = await get(path);
+      assert.equal(response.statusCode, 404, path);
+      assert.equal(response.body.includes('Unpublished Secret'), false, path);
+      assert.equal(response.body.includes('secretSetting'), false, path);
+    }
+
+    assert.equal((await get('pages/about.json')).statusCode, 200);
+    assert.equal((await get('./pages/about.json')).statusCode, 200);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+// AM5
+test('DELETE /v1/content/* never removes anything but a page or a menu', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/settings.json', JSON.stringify({ kept: true }));
+    writeAndCommit(siteRoot, 'content/redirects.json', JSON.stringify({ schemaVersion: 1, redirects: [] }));
+
+    for (const path of ['settings.json', './settings.json', 'settings%252Ejson', 'redirects.json', 'pages/..%2Fsettings.json']) {
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/v1/content/${path}`,
+        headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+        payload: { message: 'remove', author },
+      });
+      assert.equal(response.statusCode, 404, path);
+    }
+    assert.ok(existsSync(join(siteRoot, 'content', 'settings.json')));
+    assert.ok(existsSync(join(siteRoot, 'content', 'redirects.json')));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});

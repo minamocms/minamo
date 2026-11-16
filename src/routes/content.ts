@@ -4,33 +4,13 @@ import { ContentReadError, listContent, readContentFile } from '../services/cont
 import { DeleteContentError, deleteContent } from '../services/delete-content.ts';
 import { isValidCommitAuthor } from '../services/git.ts';
 import { MoveError, movePage } from '../services/move.ts';
-import { PathSafetyError } from '../services/path-safety.ts';
+import { contentRelativePath, PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { TokenEntry } from '../server-config.ts';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
-}
-
-// content/drafts/ and content/redirects.json sit inside contentRoot
-// (Group N) but are not page-shaped content reachable through the
-// generic content routes - drafts have their own dedicated /v1/drafts/*
-// surface with its own semantics, and redirects.json is agent-managed
-// data with its own /v1/redirects surface. Without this check, a
-// client request resolving into either would either leak an unpublished
-// draft's raw bytes through the "live content" read endpoint, or
-// (for DELETE) unlink a file that was never git-tracked and blow up in
-// commitPaths with a spurious 500 - both real bugs the nesting would
-// introduce, not present when drafts/redirects.json were siteRoot
-// siblings of contentRoot.
-function isReservedContentPath(relativePath: string): boolean {
-  return (
-    relativePath === 'redirects.json' ||
-    relativePath === 'settings.json' ||
-    relativePath === 'drafts' ||
-    relativePath.startsWith('drafts/')
-  );
 }
 
 export interface ContentRouteOptions {
@@ -44,12 +24,12 @@ async function handleReadContent(
   config: SiteConfig,
 ): Promise<void> {
   const relativePath = request.params['*'];
-  if (isReservedContentPath(relativePath)) {
-    reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No content at "${relativePath}"` });
-    return;
-  }
   try {
-    const { bytes, etag } = readContentFile(config.contentRoot, relativePath);
+    // Only ever a page or a menu, named in one canonical form
+    // (contentRelativePath): never an unpublished draft under
+    // content/drafts/, nor settings.json or redirects.json, which have
+    // routes of their own.
+    const { bytes, etag } = readContentFile(config.contentRoot, contentRelativePath(relativePath));
     reply.header('etag', etag).type('application/json; charset=utf-8').send(bytes);
   } catch (error) {
     // PathSafetyError has no .statusCode - left uncaught it would fall
@@ -89,10 +69,6 @@ async function handleDeleteContent(
   config: SiteConfig,
 ): Promise<void> {
   const relativePath = request.params['*'];
-  if (isReservedContentPath(relativePath)) {
-    reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No content at "${relativePath}"` });
-    return;
-  }
   const parsed = parseDeleteContentBody(request.body);
   if (!parsed) {
     reply.code(400).send({

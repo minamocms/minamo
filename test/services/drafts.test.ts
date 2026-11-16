@@ -12,6 +12,7 @@ import {
   saveDraft,
 } from '../../src/services/drafts.ts';
 import { computeEtag } from '../../src/services/etag.ts';
+import { PathSafetyError } from '../../src/services/path-safety.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
@@ -46,9 +47,9 @@ test('C2: saving a draft writes to /drafts/<path> and creates no git commit', as
     writeAndCommit(siteRoot, 'README.md', 'seed');
     const config = loadSiteConfig(siteRoot);
 
-    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
 
-    const draftPath = join(config.draftsRoot, 'about.json');
+    const draftPath = join(config.draftsRoot, 'pages/about.json');
     assert.ok(existsSync(draftPath));
     assert.deepEqual(JSON.parse(readFileSync(draftPath, 'utf-8')), validPage);
     assert.equal(commitCount(siteRoot), 1, 'saving a draft must not create a commit');
@@ -64,11 +65,11 @@ test('C3: saving a draft that fails schema validation writes nothing to disk', a
     const invalidPage = { schemaVersion: 1, title: 'About' }; // missing published, sections
 
     await assert.rejects(
-      saveDraft(config, themeSchemas, 'about.json', invalidPage, NO_PRIOR_FILE_ETAG),
+      saveDraft(config, themeSchemas, 'pages/about.json', invalidPage, NO_PRIOR_FILE_ETAG),
       (error: unknown) => error instanceof DraftError && error.reason === 'validation-failed',
     );
 
-    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+    assert.equal(existsSync(join(config.draftsRoot, 'pages/about.json')), false);
   } finally {
     cleanup();
   }
@@ -98,7 +99,7 @@ test('Group I: a validation-failed DraftError carries the real structured errors
     };
 
     await assert.rejects(
-      saveDraft(config, heroSchemas, 'about.json', invalidPage, NO_PRIOR_FILE_ETAG),
+      saveDraft(config, heroSchemas, 'pages/about.json', invalidPage, NO_PRIOR_FILE_ETAG),
       (error: unknown) => {
         assert.ok(error instanceof DraftError && error.reason === 'validation-failed');
         assert.equal(error.errors.length, 1);
@@ -116,16 +117,16 @@ test('C7: discarding a draft deletes only the draft; the live file is byte-ident
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const liveContent = JSON.stringify({ schemaVersion: 1, title: 'Live', published: true, sections: [] });
-    writeAndCommit(siteRoot, 'content/about.json', liveContent);
+    writeAndCommit(siteRoot, 'content/pages/about.json', liveContent);
     const config = loadSiteConfig(siteRoot);
 
-    await saveDraft(config, themeSchemas, 'about.json', validPage, computeEtag(Buffer.from(liveContent)));
-    const liveBefore = readFileSync(join(config.contentRoot, 'about.json'));
+    await saveDraft(config, themeSchemas, 'pages/about.json', validPage, computeEtag(Buffer.from(liveContent)));
+    const liveBefore = readFileSync(join(config.contentRoot, 'pages/about.json'));
 
-    await discardDraft(config, 'about.json');
+    await discardDraft(config, 'pages/about.json');
 
-    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
-    const liveAfter = readFileSync(join(config.contentRoot, 'about.json'));
+    assert.equal(existsSync(join(config.draftsRoot, 'pages/about.json')), false);
+    const liveAfter = readFileSync(join(config.contentRoot, 'pages/about.json'));
     assert.ok(liveBefore.equals(liveAfter), 'live file must be byte-identical after discarding a draft');
   } finally {
     cleanup();
@@ -136,7 +137,7 @@ test('discarding a draft that does not exist is idempotent, not an error', async
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    await assert.doesNotReject(discardDraft(config, 'never-existed.json'));
+    await assert.doesNotReject(discardDraft(config, 'pages/never-existed.json'));
   } finally {
     cleanup();
   }
@@ -146,9 +147,9 @@ test('E3: saving with a matching If-Match succeeds and returns the new ETag', as
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    const newEtag = await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const newEtag = await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
 
-    const draftBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    const draftBytes = readFileSync(join(config.draftsRoot, 'pages/about.json'));
     assert.equal(newEtag, computeEtag(draftBytes));
   } finally {
     cleanup();
@@ -159,12 +160,12 @@ test('a weak-prefixed If-Match (W/"...") matching the real content still succeed
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    const firstEtag = await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const firstEtag = await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
 
     const weakEtag = `W/${firstEtag}`;
-    const newEtag = await saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'Changed' }, weakEtag);
+    const newEtag = await saveDraft(config, themeSchemas, 'pages/about.json', { ...validPage, title: 'Changed' }, weakEtag);
 
-    const draftBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    const draftBytes = readFileSync(join(config.draftsRoot, 'pages/about.json'));
     assert.equal(newEtag, computeEtag(draftBytes));
   } finally {
     cleanup();
@@ -175,15 +176,15 @@ test('E2: saving with a stale If-Match returns a conflict and writes nothing', a
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
-    const draftBefore = readFileSync(join(config.draftsRoot, 'about.json'));
+    await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const draftBefore = readFileSync(join(config.draftsRoot, 'pages/about.json'));
 
     await assert.rejects(
-      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'Changed' }, '"stale-etag"'),
+      saveDraft(config, themeSchemas, 'pages/about.json', { ...validPage, title: 'Changed' }, '"stale-etag"'),
       (error: unknown) => error instanceof DraftError && error.reason === 'conflict',
     );
 
-    const draftAfter = readFileSync(join(config.draftsRoot, 'about.json'));
+    const draftAfter = readFileSync(join(config.draftsRoot, 'pages/about.json'));
     assert.ok(draftBefore.equals(draftAfter), 'a conflicting write must leave the draft untouched');
   } finally {
     cleanup();
@@ -194,7 +195,7 @@ test('E4: creating a draft from a live page for the first time checks If-Match a
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const liveContent = JSON.stringify(validPage);
-    writeAndCommit(siteRoot, 'content/about.json', liveContent);
+    writeAndCommit(siteRoot, 'content/pages/about.json', liveContent);
     const config = loadSiteConfig(siteRoot);
 
     // A stale If-Match matching neither the live file nor (obviously)
@@ -202,20 +203,20 @@ test('E4: creating a draft from a live page for the first time checks If-Match a
     // against the live ETag - proving the comparison target is the
     // live file, not silently skipped just because there's no draft.
     await assert.rejects(
-      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'New' }, '"wrong-etag"'),
+      saveDraft(config, themeSchemas, 'pages/about.json', { ...validPage, title: 'New' }, '"wrong-etag"'),
       (error: unknown) => error instanceof DraftError && error.reason === 'conflict',
     );
-    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+    assert.equal(existsSync(join(config.draftsRoot, 'pages/about.json')), false);
 
     // The real live ETag succeeds.
     const newEtag = await saveDraft(
       config,
       themeSchemas,
-      'about.json',
+      'pages/about.json',
       { ...validPage, title: 'New' },
       computeEtag(Buffer.from(liveContent)),
     );
-    assert.ok(existsSync(join(config.draftsRoot, 'about.json')));
+    assert.ok(existsSync(join(config.draftsRoot, 'pages/about.json')));
     assert.equal(typeof newEtag, 'string');
   } finally {
     cleanup();
@@ -227,14 +228,14 @@ test('prepareSaveDraft writes the draft, returns no git paths (drafts are never 
   try {
     const config = loadSiteConfig(siteRoot);
     // Seed a prior draft version, so undo has real prior bytes to restore.
-    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
-    const priorBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const priorBytes = readFileSync(join(config.draftsRoot, 'pages/about.json'));
     const priorEtag = computeEtag(priorBytes);
 
     const prepared = await prepareSaveDraft(
       config,
       themeSchemas,
-      'about.json',
+      'pages/about.json',
       { ...validPage, title: 'Changed' },
       priorEtag,
     );
@@ -242,13 +243,13 @@ test('prepareSaveDraft writes the draft, returns no git paths (drafts are never 
     assert.deepEqual(prepared.paths, []);
     assert.equal(typeof prepared.etag, 'string');
     assert.ok(
-      JSON.parse(readFileSync(join(config.draftsRoot, 'about.json'), 'utf-8')).title === 'Changed',
+      JSON.parse(readFileSync(join(config.draftsRoot, 'pages/about.json'), 'utf-8')).title === 'Changed',
       'the draft must actually be written',
     );
 
     const failures = prepared.undo();
     assert.deepEqual(failures, []);
-    assert.ok(readFileSync(join(config.draftsRoot, 'about.json')).equals(priorBytes), 'undo must restore the prior draft bytes');
+    assert.ok(readFileSync(join(config.draftsRoot, 'pages/about.json')).equals(priorBytes), 'undo must restore the prior draft bytes');
   } finally {
     cleanup();
   }
@@ -258,12 +259,12 @@ test("prepareSaveDraft's undo deletes the draft if it did not exist before", asy
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    const prepared = await prepareSaveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const prepared = await prepareSaveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
 
-    assert.ok(existsSync(join(config.draftsRoot, 'about.json')));
+    assert.ok(existsSync(join(config.draftsRoot, 'pages/about.json')));
     const failures = prepared.undo();
     assert.deepEqual(failures, []);
-    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+    assert.equal(existsSync(join(config.draftsRoot, 'pages/about.json')), false);
   } finally {
     cleanup();
   }
@@ -273,17 +274,17 @@ test('prepareDiscardDraft discards the draft, returns no git paths, and its undo
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
-    const priorBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const priorBytes = readFileSync(join(config.draftsRoot, 'pages/about.json'));
 
-    const prepared = await prepareDiscardDraft(config, 'about.json');
+    const prepared = await prepareDiscardDraft(config, 'pages/about.json');
 
     assert.deepEqual(prepared.paths, []);
-    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+    assert.equal(existsSync(join(config.draftsRoot, 'pages/about.json')), false);
 
     const failures = prepared.undo();
     assert.deepEqual(failures, []);
-    assert.ok(readFileSync(join(config.draftsRoot, 'about.json')).equals(priorBytes), 'undo must restore the discarded draft');
+    assert.ok(readFileSync(join(config.draftsRoot, 'pages/about.json')).equals(priorBytes), 'undo must restore the discarded draft');
   } finally {
     cleanup();
   }
@@ -293,7 +294,7 @@ test('E6: two concurrent saves racing with the same now-stale If-Match value - e
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    const startingEtag = await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const startingEtag = await saveDraft(config, themeSchemas, 'pages/about.json', validPage, NO_PRIOR_FILE_ETAG);
 
     // Both requests read the same starting ETag from one earlier GET,
     // then race to PUT with that now-shared value - fired via
@@ -304,8 +305,8 @@ test('E6: two concurrent saves racing with the same now-stale If-Match value - e
     // luck - verified empirically across 2000 trials before this test
     // was written (see docs/phase-2-checklist.md's Group E notes).
     const results = await Promise.allSettled([
-      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'From A' }, startingEtag),
-      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'From B' }, startingEtag),
+      saveDraft(config, themeSchemas, 'pages/about.json', { ...validPage, title: 'From A' }, startingEtag),
+      saveDraft(config, themeSchemas, 'pages/about.json', { ...validPage, title: 'From B' }, startingEtag),
     ]);
 
     const fulfilled = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled');
@@ -314,6 +315,49 @@ test('E6: two concurrent saves racing with the same now-stale If-Match value - e
     assert.equal(rejected.length, 1, 'exactly one of the two racing saves must conflict');
     const [rejection] = rejected;
     assert.ok(rejection !== undefined && rejection.reason instanceof DraftError && rejection.reason.reason === 'conflict');
+  } finally {
+    cleanup();
+  }
+});
+
+// Security audit, November 2026 (AM6): a draft could be saved anywhere
+// under content/drafts/, and publishing then wrote it over whatever
+// that path names in content/.
+test('a draft is only ever saved or discarded for a page or a menu, and a path written another way is the same draft', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+
+    for (const path of ['settings.json', 'redirects.json', './settings.json', 'drafts/pages/about.json', 'pages/about.liquid', 'pages/.hidden.json', 'other/about.json']) {
+      await assert.rejects(
+        saveDraft(config, themeSchemas, path, validPage, NO_PRIOR_FILE_ETAG),
+        (error: unknown) => error instanceof PathSafetyError,
+        path,
+      );
+      await assert.rejects(discardDraft(config, path), (error: unknown) => error instanceof PathSafetyError, path);
+    }
+    assert.equal(existsSync(join(config.draftsRoot, 'settings.json')), false);
+    assert.equal(existsSync(join(config.draftsRoot, 'redirects.json')), false);
+
+    await saveDraft(config, themeSchemas, './pages//about.json', validPage, NO_PRIOR_FILE_ETAG);
+    assert.ok(existsSync(join(config.draftsRoot, 'pages', 'about.json')));
+  } finally {
+    cleanup();
+  }
+});
+
+// AM7: "./menus/main.json" used to be validated as a page.
+test('a menu path written another way is still validated as a menu', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+
+    await assert.rejects(
+      saveDraft(config, themeSchemas, './menus/main.json', validPage, NO_PRIOR_FILE_ETAG),
+      (error: unknown) => error instanceof DraftError && error.reason === 'validation-failed',
+    );
   } finally {
     cleanup();
   }
