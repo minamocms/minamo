@@ -40,6 +40,10 @@ export interface ServerConfig {
   // turns the redirect off with "adminBaseUrl": false. A real page,
   // redirect or root file at /admin always wins over it either way.
   adminBaseUrl: string | undefined;
+  // Whether the site's pages may be shown inside a frame on another
+  // site. Off unless site.config.json says "allowEmbedding": true
+  // (server.ts's response headers).
+  allowEmbedding: boolean;
 }
 
 const DEFAULT_PORT = 3000;
@@ -199,6 +203,19 @@ function parseTrustProxy(value: unknown): boolean {
   return value;
 }
 
+function parseAllowEmbedding(value: unknown): boolean {
+  if (value === undefined) {
+    return false;
+  }
+  if (typeof value !== 'boolean') {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "allowEmbedding" must be a boolean, got ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+}
+
 function parseIpAllowlist(value: unknown): string[] {
   if (value === undefined) {
     // Absent -> [] -> a no-op (checklist H3), not "nothing is
@@ -316,6 +333,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
       checkpointIntervalMs: DEFAULT_CHECKPOINT_INTERVAL_MS,
       media: parseMedia(undefined),
       adminBaseUrl: parseAdminBaseUrl(undefined),
+      allowEmbedding: false,
     };
   }
 
@@ -348,6 +366,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   const checkpointIntervalMs = parseCheckpointIntervalMs(record.checkpointIntervalMs);
   const media = parseMedia(record.media);
   const adminBaseUrl = parseAdminBaseUrl(record.adminBaseUrl);
+  const allowEmbedding = parseAllowEmbedding(record.allowEmbedding);
 
-  return { port: resolvePort(port), tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media, adminBaseUrl };
+  return { port: resolvePort(port), tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media, adminBaseUrl, allowEmbedding };
 }

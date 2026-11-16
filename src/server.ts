@@ -11,6 +11,7 @@ import { publicRoutes } from './routes/public.ts';
 import { searchPublicRoutes } from './routes/search-public.ts';
 import { sitemapRoutes } from './routes/sitemap.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
+import { rateLimitKey } from './services/token-auth.ts';
 import { createSiteConsole, type SiteConsoleStreams } from './terminal/site-console.ts';
 import { readAgentVersion } from './routes/capabilities.ts';
 import { DEV_CHILD_ENV, LOCAL_EDIT_KEY_ENV, localEditToken } from './services/local-edit-link.ts';
@@ -60,6 +61,40 @@ export function buildServer(
     global: false,
     max: serverConfig.rateLimit.max,
     timeWindow: serverConfig.rateLimit.windowMs,
+    // A request with one of the site's tokens is counted under that
+    // token; anything else by address (services/token-auth.ts).
+    keyGenerator: (request) => rateLimitKey(serverConfig.tokens, request),
+  });
+
+  // Headers every response carries (security audit, November 2026): a
+  // site used to send none. Set only where a route has not set its own.
+  //  - nosniff: a browser never guesses a type, so an uploaded file is
+  //    never run as script or shown as a page it was not served as.
+  //  - referrer-policy: another site a visitor follows a link to learns
+  //    which site they came from, not which page or query.
+  //  - framing: the API and its previews are never shown in a frame at
+  //    all; the site's own pages only in a frame on the site itself,
+  //    unless site.config.json says "allowEmbedding": true. That stops
+  //    another site laying the page under something else to collect
+  //    clicks.
+  // No content security policy for the site's pages: what a theme
+  // loads is the theme author's to decide, and the CMS can't know it.
+  app.addHook('onSend', async (request, reply) => {
+    const setIfAbsent = (name: string, value: string): void => {
+      if (!reply.hasHeader(name)) {
+        reply.header(name, value);
+      }
+    };
+    setIfAbsent('x-content-type-options', 'nosniff');
+    setIfAbsent('referrer-policy', 'strict-origin-when-cross-origin');
+    const isApi = request.url === '/v1' || request.url.startsWith('/v1/');
+    if (isApi) {
+      setIfAbsent('x-frame-options', 'DENY');
+      setIfAbsent('content-security-policy', "frame-ancestors 'none'");
+    } else if (!serverConfig.allowEmbedding && String(reply.getHeader('content-type') ?? '').startsWith('text/html')) {
+      setIfAbsent('x-frame-options', 'SAMEORIGIN');
+      setIfAbsent('content-security-policy', "frame-ancestors 'self'");
+    }
   });
 
   // Fastify's own default 500 body leaks the raw thrown Error.message

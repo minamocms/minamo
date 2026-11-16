@@ -48,6 +48,31 @@ export function verifyToken(tokens: TokenEntry[], presentedToken: string): Scope
   return null;
 }
 
+// What a request is counted under for rate limiting (security audit,
+// November 2026). The limiter runs before any route's own token check,
+// and used to count every request by its network address alone. Behind
+// a proxy that is not trusted to name the visitor (trustProxy off),
+// every request arrives from the proxy's one address: anyone could use
+// up the write limit with requests that were always going to be
+// refused, and so stop the real admin saving. With trustProxy on in
+// front of nothing, the address is whatever the caller says it is.
+//
+// So a request that presents one of the site's own tokens is counted
+// under that token, wherever it comes from, and nothing without a
+// valid token can ever use up a token's allowance. Everything else is
+// still counted by address. The key holds a hash of the token, never
+// the token.
+export function rateLimitKey(tokens: TokenEntry[], request: Pick<FastifyRequest, 'headers' | 'ip'>): string {
+  const header = request.headers.authorization;
+  if (typeof header === 'string' && header.startsWith(BEARER_PREFIX)) {
+    const presentedToken = header.slice(BEARER_PREFIX.length);
+    if (verifyToken(tokens, presentedToken) !== null) {
+      return `token:${hashToken(presentedToken).toString('hex').slice(0, 32)}`;
+    }
+  }
+  return `ip:${request.ip}`;
+}
+
 // Applied as a per-route preHandler option
 // (fastify.get(path, { preHandler: requireScope(tokens, 'content') }, handler)),
 // not a whole-file addHook: a single route-group file may eventually

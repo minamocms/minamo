@@ -55,4 +55,23 @@ if [ ! -d "$SITE/.git" ]; then
 fi
 
 cd "$SITE/vhost"
+
+# The site itself never runs as root (security audit, November 2026).
+# This script starts as root because it has to: a volume is mounted
+# owned by root, and everything above writes to it. Once that is done
+# the whole site is handed to "node", the unprivileged user the base
+# image already has, and the server starts as that user. A flaw in the
+# CMS or in a theme then reaches the site's own files and nothing else
+# in the container.
+#
+# The chown runs on every boot, not only the first: the lines above
+# have just written the CMS's own files as root again, and a volume
+# from before this change is root's throughout.
+#
+# Where the container is already started as another user (a host that
+# does that itself, or the test suite), there is nothing to hand over.
+if [ "$(id -u)" = "0" ]; then
+  chown -R node:node "$SITE"
+  exec su-exec node node server.js
+fi
 exec node server.js

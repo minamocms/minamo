@@ -475,3 +475,54 @@ test('a path traversal attempt against the theme/root/ mirror fails safely, neve
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM20, AM21): a site sent no security
+// headers at all.
+test("the site's pages tell the browser not to guess types, to say little to other sites, and to be framed only by the site itself", async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    for (const url of ['/about', '/no-such-page']) {
+      const response = await app.inject({ method: 'GET', url });
+      assert.equal(response.headers['x-content-type-options'], 'nosniff', url);
+      assert.equal(response.headers['referrer-policy'], 'strict-origin-when-cross-origin', url);
+      assert.equal(response.headers['x-frame-options'], 'SAMEORIGIN', url);
+      assert.equal(response.headers['content-security-policy'], "frame-ancestors 'self'", url);
+    }
+
+    const api = await app.inject({ method: 'GET', url: '/v1/capabilities' });
+    assert.equal(api.headers['x-content-type-options'], 'nosniff');
+    assert.equal(api.headers['x-frame-options'], 'DENY');
+    assert.equal(api.headers['content-security-policy'], "frame-ancestors 'none'");
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('"allowEmbedding": true in site.config.json lets the pages be framed elsewhere, and never the API', async () => {
+  const siteRoot = mkdtempSync(join(tmpdir(), 'minamo-public-test-'));
+  cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
+  execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
+  const configPath = join(siteRoot, 'vhost', 'site.config.json');
+  let existing: Record<string, unknown> = {};
+  try {
+    existing = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+  } catch {
+    existing = {};
+  }
+  writeJson(siteRoot, 'vhost/site.config.json', { ...existing, allowEmbedding: true });
+  const app = buildServer(bootSite(siteRoot), loadServerConfig(siteRoot), { logger: false });
+  try {
+    const page = await app.inject({ method: 'GET', url: '/about' });
+    assert.equal(page.statusCode, 200);
+    assert.equal(page.headers['x-frame-options'], undefined);
+    assert.equal(page.headers['content-security-policy'], undefined);
+    assert.equal(page.headers['x-content-type-options'], 'nosniff');
+
+    const api = await app.inject({ method: 'GET', url: '/v1/capabilities' });
+    assert.equal(api.headers['x-frame-options'], 'DENY');
+  } finally {
+    await app.close();
+    rmSync(siteRoot, { recursive: true, force: true });
+  }
+});

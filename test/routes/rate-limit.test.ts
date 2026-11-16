@@ -107,3 +107,45 @@ test('H2: GET /v1/capabilities gets its own, more generous rate limit', async ()
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM19): the limiter counted every
+// request by address, before any token was checked, so requests that
+// were always going to be refused could use up the limit the real admin
+// needs, from the same address (a proxy's) or any other.
+test('requests without a valid token never use up the allowance of one with a token, even from the same address', async () => {
+  const { app, cleanup } = buildRateLimitTestServer({ max: 2, windowMs: 60000 });
+  try {
+    const rebuild = (authorization?: string) =>
+      app.inject({ method: 'POST', url: '/v1/search/rebuild', headers: authorization ? { authorization } : {} });
+
+    // Refused requests, then limited ones: all from the one address the
+    // real admin also arrives from.
+    for (const authorization of [undefined, 'Bearer wrong-token', 'Bearer another-wrong-token', undefined, 'Basic abc']) {
+      const response = await rebuild(authorization);
+      assert.ok([401, 429].includes(response.statusCode), String(response.statusCode));
+    }
+    assert.equal((await rebuild()).statusCode, 429, 'the address without a token is limited');
+
+    assert.equal((await rebuild(`Bearer ${CONTENT_TOKEN}`)).statusCode, 200);
+    assert.equal((await rebuild(`Bearer ${CONTENT_TOKEN}`)).statusCode, 200);
+    assert.equal((await rebuild(`Bearer ${CONTENT_TOKEN}`)).statusCode, 429, 'the token still has its own limit');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a token is limited as one, whatever address it arrives from', async () => {
+  const { app, cleanup } = buildRateLimitTestServer({ max: 2, windowMs: 60000 });
+  try {
+    const rebuildFrom = (remoteAddress: string) =>
+      app.inject({ method: 'POST', url: '/v1/search/rebuild', headers: { authorization: `Bearer ${CONTENT_TOKEN}` }, remoteAddress });
+
+    assert.equal((await rebuildFrom('203.0.113.1')).statusCode, 200);
+    assert.equal((await rebuildFrom('203.0.113.2')).statusCode, 200);
+    assert.equal((await rebuildFrom('203.0.113.3')).statusCode, 429);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});

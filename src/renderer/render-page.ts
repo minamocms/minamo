@@ -6,6 +6,7 @@ import { loadMenus } from '../services/menus.ts';
 import { sanitisePath } from '../services/path-safety.ts';
 import type { ThemeTemplates } from './theme-templates.ts';
 import { siteSettingsMtimeMs, type SiteSettings } from '../services/site-settings.ts';
+import { ownValue } from '../services/own-value.ts';
 
 export type PageRenderReason =
   | 'page-not-found'
@@ -84,7 +85,7 @@ async function renderInstance(
   siteSettings: SiteSettings,
 ): Promise<string> {
   const templates = kind === 'section' ? themeTemplates.sections : themeTemplates.blocks;
-  const template = templates[instance.type];
+  const template = ownValue(templates, instance.type);
   if (!template) {
     throw new PageRenderError(
       kind === 'section' ? 'missing-section-type' : 'missing-block-type',
@@ -214,7 +215,7 @@ export async function renderLoadedPage(
   // ordering missing-section-type/missing-block-type already
   // establish - no point rendering a page's whole body just to
   // discover its layout doesn't exist.
-  const layoutTemplate = layouts[page.layout];
+  const layoutTemplate = ownValue(layouts, page.layout);
   if (!layoutTemplate) {
     throw new PageRenderError('missing-layout', `Layout "${page.layout}" is missing from the theme`);
   }

@@ -28,13 +28,14 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 |---|---|---|
 | `port` | `3000` | The local port. `create-site` gives each new site a free one between 3000 and 3999, so several can run side by side; if it's taken anyway, `npm run dev` uses the next free port for that session and says so (`npm start` doesn't). Overridden by the `PORT` environment variable if set (e.g. `PORT=3001 node server.js`), which is how hosting platforms such as Railway set it. The scaffolded `vhost/Dockerfile` sets `PORT=3000`, so inside a container the site always listens on 3000, whatever this says. |
 | `tokens` | `[]` | Array of `{ hash, scopes }`. `hash` is a sha256 hex digest of the real token, never the raw token itself. `scopes` is any of `content`, `theme`, `media`. Rotating a token requires a restart - it's loaded once at boot. |
-| `rateLimit` | `{ max: 60, windowMs: 60000 }` | Per-IP. |
+| `rateLimit` | `{ max: 60, windowMs: 60000 }` | Counted per access token for a request that presents a valid one, and per IP address for everything else, so requests without a token can never use up a token's allowance. |
 | `trustProxy` | `false` | Set `true` when a reverse proxy or platform edge sits in front of this process, so client IPs (used by `ipAllowlist` and rate limiting) are read correctly rather than seeing the proxy's own address. |
 | `ipAllowlist` | `[]` | Empty means no restriction, not "nothing allowed". |
 | `checkpointIntervalMs` | `1800000` (30 min) | How often open drafts are auto-committed as a safety checkpoint. |
 | `media.maxUploadBytes` | `10485760` (10MB) | The cap for images and videos. |
 | `media.maxDocumentUploadBytes` | `26214400` (25MB) | The cap for PDFs, the one document type. Larger by default because a print-ready brochure or a long price list routinely runs past 10MB. |
 | `adminBaseUrl` | `https://cms.minamo.app` | Where `GET /admin` sends a visitor: the admin that manages this site, with `?site=<host>` appended so the admin opens this site's editor directly. Set another absolute `http(s)` URL for a different admin, or `false` to turn the redirect off. A real page, a redirect or a `theme/root/` file at `/admin` always wins, so a site can still have its own page there. See "Linking to the admin" below. |
+| `allowEmbedding` | `false` | Whether the site's pages may be shown inside a frame on another site. Off, every page is sent with `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy: frame-ancestors 'self'`, so only the site itself can frame it. Set `true` only if another site embeds this one. The `/v1/` API is never framed either way. |
 
 ## Access tokens
 
@@ -80,6 +81,8 @@ docker run -d -p 3000:3000 -v my-site-data:/site my-site
 ```
 
 The build context is still the site root (the trailing `.`) - only the Dockerfile's own location moved, not what it needs access to.
+
+The container starts as root only long enough to prepare the mounted volume, then hands the whole site to the unprivileged `node` user and starts the server as that user. A volume from before this (owned by root) is handed over on its next start, with nothing to do by hand. If your host already starts the container as another user, the hand-over is skipped: make sure that user can write to the site's folder.
 
 The `-v my-site-data:/site` volume is what makes drafts and publishes survive a restart or redeploy - without it, the container's writable layer is thrown away every time it's recreated, and every commit made since the image was built is lost. A second `docker run` against the same named volume reuses the already-seeded content and skips straight to starting the server.
 

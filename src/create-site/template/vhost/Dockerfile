@@ -12,8 +12,9 @@ FROM node:22-alpine
 
 # git is a hard runtime requirement (services/startup-checks.ts fails
 # fast without it) - content, drafts and publishes are all real git
-# operations, not a database.
-RUN apk add --no-cache git
+# operations, not a database. su-exec is how the entrypoint hands over
+# from root to the unprivileged "node" user before the site starts.
+RUN apk add --no-cache git su-exec
 
 # Build-time install happens against the image-baked copy of the site
 # ("/seed"), never directly against "/site" - "/site" is where a

@@ -8,6 +8,7 @@ import { loadThemeSchemas } from '../services/theme-schemas.ts';
 import { pagePathToUrl } from '../services/urls.ts';
 import { enqueue } from '../services/write-queue.ts';
 import { openNodeSqliteDriver } from './drivers/node-sqlite-driver.ts';
+import { ownValue } from '../services/own-value.ts';
 
 // How many content files the rebuild loop processes between yields to
 // the event loop (see the yield's own comment below for why this
@@ -151,7 +152,7 @@ function extractInstanceApiFields(instance: InstanceLike, schemaMap: Record<stri
   if (!type || !id) {
     return;
   }
-  const properties = (schemaMap[type] as { properties?: unknown } | undefined)?.properties;
+  const properties = (ownValue(schemaMap, type) as { properties?: unknown } | undefined)?.properties;
   if (!properties || typeof properties !== 'object') {
     return;
   }

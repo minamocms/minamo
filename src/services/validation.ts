@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { Ajv } from 'ajv';
 import type { ErrorObject, ValidateFunction } from 'ajv';
 import { sanitiseBySchema } from './rich-text.ts';
+import { ownValue } from './own-value.ts';
 import { isSafeLink } from './safe-link.ts';
 
 export interface ValidationError {
@@ -181,7 +182,7 @@ export function validateInstance(
 
   const typed = instance as InstanceShape;
   const typeSchemas = kind === 'section' ? themeSchemas.sections : themeSchemas.blocks;
-  const typeSchema = typeSchemas[typed.type];
+  const typeSchema = ownValue(typeSchemas, typed.type);
 
   const errors: ValidationError[] = [];
 
@@ -277,7 +278,7 @@ function cleanInstance(instance: unknown, kind: 'section' | 'block', themeSchema
   }
   const typed = instance as InstanceShape;
   const typeSchemas = kind === 'section' ? themeSchemas.sections : themeSchemas.blocks;
-  const typeSchema = Object.hasOwn(typeSchemas, typed.type) ? typeSchemas[typed.type] : undefined;
+  const typeSchema = ownValue(typeSchemas, typed.type);
   return {
     ...typed,
     settings: typeSchema ? sanitiseBySchema(typed.settings, typeSchema) : typed.settings,

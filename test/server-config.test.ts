@@ -19,6 +19,7 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024, maxDocumentUploadBytes: 25 * 1024 * 1024 },
       adminBaseUrl: 'https://cms.minamo.app',
+      allowEmbedding: false,
     });
   } finally {
     cleanup();
@@ -39,6 +40,7 @@ test('a site.config.json with a valid port is read correctly', () => {
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024, maxDocumentUploadBytes: 25 * 1024 * 1024 },
       adminBaseUrl: 'https://cms.minamo.app',
+      allowEmbedding: false,
     });
   } finally {
     cleanup();
@@ -92,6 +94,7 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024, maxDocumentUploadBytes: 25 * 1024 * 1024 },
       adminBaseUrl: 'https://cms.minamo.app',
+      allowEmbedding: false,
     });
   } finally {
     cleanup();
@@ -483,6 +486,20 @@ test('a non-positive-integer media.maxDocumentUploadBytes is a hard startup fail
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { media: { maxDocumentUploadBytes: '25MB' } });
     assert.throws(() => loadServerConfig(siteRoot), /media\.maxDocumentUploadBytes/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('"allowEmbedding" is off unless site.config.json turns it on, and anything but a boolean is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { allowEmbedding: true });
+    assert.equal(loadServerConfig(siteRoot).allowEmbedding, true);
+    writeJson(siteRoot, 'vhost/site.config.json', {});
+    assert.equal(loadServerConfig(siteRoot).allowEmbedding, false);
+    writeJson(siteRoot, 'vhost/site.config.json', { allowEmbedding: 'yes' });
+    assert.throws(() => loadServerConfig(siteRoot), /"allowEmbedding" must be a boolean/);
   } finally {
     cleanup();
   }

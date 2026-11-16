@@ -88,3 +88,15 @@ test('K2: a parent type with no allowedBlocks stays unrestricted (regression)', 
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
 });
+
+// Security audit, November 2026 (AM18): a type named after something
+// every object inherits used to be found, and fail far from the cause.
+test('a section or block type named after an inherited property is an unknown type, like any other the theme does not define', () => {
+  for (const type of ['constructor', 'tostring', 'hasownproperty', 'valueof']) {
+    for (const kind of ['section', 'block'] as const) {
+      const result = validateInstance({ id: 'x1', type, settings: {} }, kind, themeSchemas);
+      assert.equal(result.valid, false, `${kind} ${type}`);
+      assert.ok(result.errors.some((error) => error.keyword === 'unknownType'), `${kind} ${type}`);
+    }
+  }
+});

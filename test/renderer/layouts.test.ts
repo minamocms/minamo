@@ -148,3 +148,21 @@ test('a page missing the layout field entirely (pre-existing content that predat
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM18).
+test('a page whose layout is named after an inherited property is a missing layout, not a crash', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    for (const layout of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      writeJson(siteRoot, 'content/about.json', page({ layout }));
+      await assert.rejects(
+        renderPage(config, themeTemplates, layouts, engine, 'about.json', 'public'),
+        (error: unknown) => error instanceof PageRenderError && error.reason === 'missing-layout',
+        layout,
+      );
+    }
+  } finally {
+    cleanup();
+  }
+});
