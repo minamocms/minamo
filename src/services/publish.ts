@@ -8,7 +8,7 @@ import type { PreparedOperation } from './prepared-operation.ts';
 import { loadRedirects, removeRedirectForPath, serialiseRedirects } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
-import { validateContent } from './validation.ts';
+import { cleanContent, validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 import { reindexInBackground } from './reindex-on-write.ts';
 
@@ -176,6 +176,15 @@ export function preparePublishDrafts(
         'validation-failed',
         `Draft at "${relativePath}" failed validation: ${JSON.stringify(result.errors)}`,
       );
+    }
+
+    // What goes live has its rich text cleaned (rich-text.ts). A draft
+    // saved through the API already is, and its bytes go live
+    // unchanged; one saved before that was so, or put in place by hand,
+    // is cleaned here.
+    const cleaned = cleanContent(relativePath, parsed, themeSchemas);
+    if (JSON.stringify(cleaned) !== JSON.stringify(parsed)) {
+      draftContent = Buffer.from(JSON.stringify(cleaned, null, 2));
     }
 
     entries.push({ relativePath, draftPath, livePath, draftContent });

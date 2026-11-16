@@ -130,7 +130,7 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 
 | `format` | On type | Effect |
 |---|---|---|
-| `richtext` | `string` | Rich-text editor; render with `{{ ... | raw }}`, not plain `{{ }}` |
+| `richtext` | `string` | Rich-text editor; render with `{{ ... | raw }}`, not plain `{{ }}`. The CMS cleans the HTML on save (scripts, styles, frames and event handlers are removed) |
 | `image` | `object` | Image picker with focal point; object shape is exactly `{ "url": "...", "focalX": 0.5, "focalY": 0.5 }`. **Render it with `{% render 'responsive-media' %}`, never a hand-written `<img>`** - see "Making an image or video droppable" below |
 | `video` | `object` | Video picker for a short, silent background loop; object shape is exactly `{ "url": "...", "poster": "..." }`. **Render it with `{% render 'responsive-media' %}`, never a hand-written `<video>`** - see "Making an image or video droppable" below. The snippet sets the poster for you, which matters because the poster is what shows before the clip loads and whenever it cannot play. Only `.mp4`/`.webm` can be uploaded, under the same 10MB media cap - long-form video belongs on YouTube/Vimeo as an embed, not here. No focal point: a loop is played as a background rather than cropped around a subject |
 | `textarea` | `string` | Multi-line `<textarea>` |

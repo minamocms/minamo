@@ -88,6 +88,15 @@ Found reading the code (2026-11-15): the git routes resolved paths against the s
 | AM6 | A draft is only ever saved or discarded for a page or a menu, and a path written another way is the same draft | `test/services/drafts.test.ts` ("a draft is only ever saved or discarded for a page or a menu") |
 | AM7 | A menu path written another way is still validated as a menu, not as a page | `drafts.test.ts` ("a menu path written another way is still validated as a menu") |
 | AM8 | Publishing, unpublishing and re-publishing act only on pages and menus, and the same file named twice in two spellings is a duplicate | `test/services/publish.test.ts` ("act only on pages and menus") |
+| AM9 | A redirect target with a backslash in it is refused when saved (browsers read `\` as `/`, so `/\other.example` leaves the site) | `test/services/manage-redirects.test.ts` ("rejects a target with a backslash in it") |
+| AM10 | A redirect already in `redirects.json` whose target leaves the site is never served | `test/services/resolve-url.test.ts` ("is never served") |
+| AM11 | `sanitiseRichText` leaves what the admin's editor produces, and the safe extras a developer might hand-write, exactly as they are | `test/services/rich-text.test.ts` ("leaves what the editor produces exactly as it is", "keeps the safe extras") |
+| AM12 | It removes everything that could run, in every form tried (46 cases): the output holds only listed tags and attributes, no address that is script, and cleaning it again changes nothing | `rich-text.test.ts` ("removes everything that could run, in every form tried") |
+| AM13 | What it writes is always well formed: open tags are closed in order, and a close with no open is dropped | `rich-text.test.ts` ("closes what was left open") |
+| AM14 | `isSafeLink` allows site paths and `http`, `https`, `mailto`, `tel` and `sms`, and nothing that runs, however it is spelt | `rich-text.test.ts` ("isSafeLink allows site paths") |
+| AM15 | A saved draft has its rich text cleaned, in sections and in blocks, found by the theme's schemas; plain fields are stored as typed; the ETag is of what was stored | `test/services/drafts.test.ts` ("a saved draft has its rich text cleaned") |
+| AM16 | A link field (`format: url`) or a menu item whose link is script is refused, and nothing is written | `drafts.test.ts` ("a link field that is script is refused", "a menu item whose link is script is refused") |
+| AM17 | Publishing cleans the rich text of a draft that was not cleaned when saved | `test/services/publish.test.ts` ("publishing cleans the rich text") |
 
 ## Future considerations (not scoped, for later discussion)
 

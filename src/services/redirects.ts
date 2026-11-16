@@ -233,8 +233,17 @@ function hasControlCharacter(value: string): boolean {
 // Control characters are rejected regardless of the internal/external
 // question, since public.ts writes this value directly into the
 // Location response header.
+//
+// No backslash anywhere either (security audit, November 2026):
+// browsers read "\" in a URL as "/", so "/\other.example" passed the
+// two checks above and still sent the visitor to another site.
+//
+// Also checked when a redirect is served (resolve-url.ts), not only
+// when one is saved: redirects.json can be edited by hand or arrive by
+// a push, and one saved before this rule could already hold such a
+// target.
 export function isValidRedirectTarget(value: string): boolean {
-  if (value.length === 0 || hasControlCharacter(value)) {
+  if (value.length === 0 || hasControlCharacter(value) || value.includes('\\')) {
     return false;
   }
   return value.startsWith('/') && !value.startsWith('//');

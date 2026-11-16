@@ -362,3 +362,88 @@ test('a menu path written another way is still validated as a menu', async () =>
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM15, AM16): rich text was only
+// cleaned by the admin's editor, in the browser.
+const richThemeSchemas: ThemeSchemas = {
+  sections: {
+    text: {
+      type: 'object',
+      properties: {
+        heading: { type: 'string' },
+        body: { type: 'string', format: 'richtext' },
+        link: { type: 'string', format: 'url' },
+      },
+    },
+  },
+  blocks: { note: { type: 'object', properties: { text: { type: 'string', format: 'richtext' } } } },
+  acceptsBlocks: { sections: { text: true }, blocks: {} },
+};
+
+function richPage(settings: Record<string, unknown>, blockText = '<p>fine</p>'): object {
+  return {
+    ...validPage,
+    sections: [{ id: 's1', type: 'text', settings, blocks: [{ id: 'b1', type: 'note', settings: { text: blockText } }] }],
+  };
+}
+
+test('a saved draft has its rich text cleaned, in sections and in blocks, and nothing else changed', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+    const dirty = '<p onclick="alert(1)">Hello</p><script>alert(1)</script><img src=x onerror=alert(1)>';
+
+    const etag = await saveDraft(config, richThemeSchemas, 'pages/about.json', richPage({ heading: dirty, body: dirty, link: '/contact' }, dirty), NO_PRIOR_FILE_ETAG);
+
+    const bytes = readFileSync(join(config.draftsRoot, 'pages', 'about.json'));
+    const stored = JSON.parse(bytes.toString('utf-8')) as { sections: Array<{ settings: Record<string, string>; blocks: Array<{ settings: Record<string, string> }> }> };
+    assert.equal(stored.sections[0]?.settings.body, '<p>Hello</p><img src="x">');
+    assert.equal(stored.sections[0]?.blocks[0]?.settings.text, '<p>Hello</p><img src="x">');
+    assert.equal(stored.sections[0]?.settings.heading, dirty, 'a plain text field is escaped by the template, and stored as typed');
+    assert.equal(stored.sections[0]?.settings.link, '/contact');
+    assert.equal(etag, computeEtag(bytes), 'the ETag is of what was stored');
+  } finally {
+    cleanup();
+  }
+});
+
+test('a link field that is script is refused, and nothing is written', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+
+    for (const link of ['javascript:alert(1)', ' JavaScript:alert(1)', 'java\tscript:alert(1)', 'data:text/html,x', 'vbscript:x']) {
+      await assert.rejects(
+        saveDraft(config, richThemeSchemas, 'pages/about.json', richPage({ body: '<p>x</p>', link }), NO_PRIOR_FILE_ETAG),
+        (error: unknown) => error instanceof DraftError && error.reason === 'validation-failed',
+        link,
+      );
+    }
+    assert.equal(existsSync(join(config.draftsRoot, 'pages', 'about.json')), false);
+
+    for (const link of ['/contact', '#top', 'https://example.com', 'mailto:hello@example.com', 'tel:+61400000000', '']) {
+      await saveDraft(config, richThemeSchemas, `pages/ok-${Buffer.from(link).toString('hex') || 'empty'}.json`, richPage({ body: '<p>x</p>', link }), NO_PRIOR_FILE_ETAG);
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test('a menu item whose link is script is refused', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+    const menu = (url: string) => ({ schemaVersion: 1, items: [{ label: 'Home', url }] });
+
+    await assert.rejects(
+      saveDraft(config, themeSchemas, 'menus/main.json', menu('javascript:alert(1)'), NO_PRIOR_FILE_ETAG),
+      (error: unknown) => error instanceof DraftError && error.reason === 'validation-failed',
+    );
+    await saveDraft(config, themeSchemas, 'menus/main.json', menu('/about'), NO_PRIOR_FILE_ETAG);
+  } finally {
+    cleanup();
+  }
+});

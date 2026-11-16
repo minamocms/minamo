@@ -51,3 +51,32 @@ test('a URL with neither a live page nor a redirect resolves to not-found', asyn
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM10): redirects.json can be edited
+// by hand or arrive by a push, so a target is checked when served too.
+test('a redirect already in redirects.json with a target that leaves the site is never served', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeAndCommit(
+      siteRoot,
+      'content/redirects.json',
+      JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          { from: '/backslash', to: '/\\evil.example' },
+          { from: '/protocol-relative', to: '//evil.example' },
+          { from: '/absolute', to: 'https://evil.example' },
+          { from: '/fine', to: '/about' },
+        ],
+      }),
+    );
+
+    assert.deepEqual(resolveUrl(config, '/backslash'), { kind: 'not-found' });
+    assert.deepEqual(resolveUrl(config, '/protocol-relative'), { kind: 'not-found' });
+    assert.deepEqual(resolveUrl(config, '/absolute'), { kind: 'not-found' });
+    assert.deepEqual(resolveUrl(config, '/fine'), { kind: 'redirect', to: '/about' });
+  } finally {
+    cleanup();
+  }
+});

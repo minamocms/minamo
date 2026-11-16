@@ -225,3 +225,23 @@ test('createRedirect refuses a malformed redirects.json rather than silently ove
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM9): browsers read "\\" as "/", so
+// "/\\other.example" is another site.
+test('createRedirect rejects a target with a backslash in it', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
+    const config = loadSiteConfig(siteRoot);
+
+    for (const target of ['/\\evil.example', '/\\\\evil.example', '/a\\b', '/\\/evil.example']) {
+      await assert.rejects(
+        createRedirect(config, '/a', target, undefined, 'create redirect', author),
+        (error: unknown) => error instanceof ManageRedirectError && error.reason === 'invalid-target',
+        target,
+      );
+    }
+  } finally {
+    cleanup();
+  }
+});

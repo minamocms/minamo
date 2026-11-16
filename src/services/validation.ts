@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Ajv } from 'ajv';
 import type { ErrorObject, ValidateFunction } from 'ajv';
+import { sanitiseBySchema } from './rich-text.ts';
+import { isSafeLink } from './safe-link.ts';
 
 export interface ValidationError {
   path: string;
@@ -52,11 +54,17 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 // still isn't in this list, so it still warns - this only silences the
 // ones we ourselves tell theme authors to use, not unknown-format
 // warnings in general.
-// "url" (the link field's documented name) and "uri" (its name before)
-// are hints too: a link is a site path like "/about" as often as a full
-// address, which a real uri check would reject.
-for (const format of ['richtext', 'image', 'textarea', 'color', 'range', 'toggle', 'video', 'url', 'uri']) {
+for (const format of ['richtext', 'image', 'textarea', 'color', 'range', 'toggle', 'video']) {
   ajv.addFormat(format, true);
+}
+// "url" (the link field's documented name) and "uri" (its name before)
+// are checked, though not as a real uri: a link is a site path like
+// "/about" as often as a full address. What is refused is a link that
+// is script, "javascript:" above all (services/safe-link.ts; security
+// audit, November 2026). A menu item's own "url" carries the same
+// format (schemas/menu.schema.json).
+for (const format of ['url', 'uri']) {
+  ajv.addFormat(format, { type: 'string', validate: isSafeLink });
 }
 
 const schemasDir = join(import.meta.dirname, '..', 'schemas');
@@ -256,6 +264,41 @@ export function validateContent(
     return validateMenu(content);
   }
   return validatePage(content, themeSchemas);
+}
+
+// Content as it is to be stored: every rich text value in it cleaned
+// (services/rich-text.ts). Called on content that has already passed
+// validateContent, by every path that writes it. A menu holds no rich
+// text. A section or block of a type the theme doesn't define can't
+// have passed validation, and is left as it is.
+function cleanInstance(instance: unknown, kind: 'section' | 'block', themeSchemas: ThemeSchemas): unknown {
+  if (typeof instance !== 'object' || instance === null) {
+    return instance;
+  }
+  const typed = instance as InstanceShape;
+  const typeSchemas = kind === 'section' ? themeSchemas.sections : themeSchemas.blocks;
+  const typeSchema = Object.hasOwn(typeSchemas, typed.type) ? typeSchemas[typed.type] : undefined;
+  return {
+    ...typed,
+    settings: typeSchema ? sanitiseBySchema(typed.settings, typeSchema) : typed.settings,
+    ...(Array.isArray(typed.blocks) ? { blocks: typed.blocks.map((block) => cleanInstance(block, 'block', themeSchemas)) } : {}),
+  };
+}
+
+export function cleanContent(relativePath: string, content: unknown, themeSchemas: ThemeSchemas): unknown {
+  if (relativePath.startsWith('menus/') || typeof content !== 'object' || content === null) {
+    return content;
+  }
+  const page = content as SectionedContentShape;
+  if (!Array.isArray(page.sections)) {
+    return content;
+  }
+  return { ...page, sections: page.sections.map((section) => cleanInstance(section, 'section', themeSchemas)) };
+}
+
+// The same for site settings, against the theme's settings schema.
+export function cleanSiteSettings(settings: unknown, themeSchemas: ThemeSchemas): unknown {
+  return themeSchemas.settings ? sanitiseBySchema(settings, themeSchemas.settings) : settings;
 }
 
 // Site settings (content/settings.json) against the theme's own

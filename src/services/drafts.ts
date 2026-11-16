@@ -6,7 +6,7 @@ import { computeEtag, etagsMatch } from './etag.ts';
 import { contentRelativePath, sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import type { ThemeSchemas, ValidationError } from './validation.ts';
-import { validateContent } from './validation.ts';
+import { cleanContent, validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 // content/drafts/ may not exist: git keeps no empty folders, so a site
@@ -109,7 +109,8 @@ async function saveDraftJob(
   }
 
   mkdirSync(dirname(draftPath), { recursive: true });
-  const bytes = Buffer.from(JSON.stringify(content, null, 2));
+  // Stored with its rich text cleaned, whoever sent it (rich-text.ts).
+  const bytes = Buffer.from(JSON.stringify(cleanContent(relativePath, content, themeSchemas), null, 2));
   writeFileSync(draftPath, bytes);
   // No git call: saves are cheap and frequent, and never create history
   // (checklist C2, constraint 5).

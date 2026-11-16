@@ -338,3 +338,28 @@ test('publishing, unpublishing and re-publishing act only on pages and menus, an
     cleanup();
   }
 });
+
+// Security audit, November 2026 (AM17): a draft saved before rich text
+// was cleaned on save, or put in place by hand, is cleaned as it goes
+// live.
+test('publishing cleans the rich text of a draft that was not cleaned when saved', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+    const schemas: ThemeSchemas = {
+      sections: { text: { type: 'object', properties: { body: { type: 'string', format: 'richtext' } } } },
+      blocks: {},
+      acceptsBlocks: { sections: {}, blocks: {} },
+    };
+    const withBody = (body: string) => ({ ...page('About'), sections: [{ id: 's1', type: 'text', settings: { body } }] });
+    mkdirSync(join(config.draftsRoot, 'pages'), { recursive: true });
+    writeFileSync(join(config.draftsRoot, 'pages', 'about.json'), JSON.stringify(withBody('<p>Hello</p><script>alert(1)</script>')));
+
+    await publishDrafts(config, schemas, ['pages/about.json'], 'publish', author);
+
+    assert.deepEqual(JSON.parse(readFileSync(join(config.contentRoot, 'pages', 'about.json'), 'utf-8')), withBody('<p>Hello</p>'));
+  } finally {
+    cleanup();
+  }
+});

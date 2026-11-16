@@ -16,7 +16,7 @@
         "required": ["label", "url"],
         "properties": {
           "label": { "type": "string", "minLength": 1 },
-          "url": { "type": "string", "minLength": 1 }
+          "url": { "type": "string", "minLength": 1, "format": "url" }
         }
       }
     }

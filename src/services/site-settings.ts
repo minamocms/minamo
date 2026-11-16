@@ -5,7 +5,7 @@ import { computeEtag, etagsMatch } from './etag.ts';
 import type { CommitAuthor } from './git.ts';
 import { commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
-import { validateSiteSettings, type ThemeSchemas } from './validation.ts';
+import { cleanSiteSettings, validateSiteSettings, type ThemeSchemas } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 // Site settings: values for the fields the theme defines in
@@ -126,7 +126,8 @@ async function saveSiteSettingsJob(
 
   const path = siteSettingsPath(config);
   const before = existsSync(path) ? readFileSync(path) : null;
-  const bytes = Buffer.from(`${JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, settings }, null, 2)}\n`);
+  // Stored with its rich text cleaned (rich-text.ts).
+  const bytes = Buffer.from(`${JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, settings: cleanSiteSettings(settings, themeSchemas) }, null, 2)}\n`);
   writeFileSync(path, bytes);
 
   try {

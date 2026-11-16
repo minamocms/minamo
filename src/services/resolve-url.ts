@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { SiteConfig } from '../config.ts';
 import { sanitisePath } from './path-safety.ts';
-import { buildRedirectLookup, loadRedirects } from './redirects.ts';
+import { buildRedirectLookup, isValidRedirectTarget, loadRedirects } from './redirects.ts';
 import { urlToPagePath } from './urls.ts';
 
 export type ResolvedUrl =
@@ -22,7 +22,8 @@ export function resolveUrl(config: SiteConfig, url: string): ResolvedUrl {
 
   const lookup = buildRedirectLookup(loadRedirects(config).entries);
   const to = lookup.get(url);
-  if (to !== undefined) {
+  // Checked again here, not only when saved (see isValidRedirectTarget).
+  if (to !== undefined && isValidRedirectTarget(to)) {
     return { kind: 'redirect', to };
   }
 
