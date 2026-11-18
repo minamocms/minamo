@@ -91,6 +91,17 @@ test('a page may optionally carry author, publishDate, and tags - no separate po
   assert.deepEqual(result.errors, []);
 });
 
+// Since 0.18.0.
+test('a page may carry its own description, and an empty one is refused like any other empty field', () => {
+  const page = readJson('pages', 'valid-page.json') as Record<string, unknown>;
+
+  assert.equal(validatePage({ ...page, description: 'What this page is about.' }, themeSchemas).valid, true);
+
+  const empty = validatePage({ ...page, description: '' }, themeSchemas);
+  assert.equal(empty.valid, false);
+  assert.equal(empty.errors[0]?.path, '/description');
+});
+
 test('a page with none of author, publishDate, or tags still validates - they are optional, not required', () => {
   const page = readJson('pages', 'valid-page.json');
   const result = validatePage(page, themeSchemas);

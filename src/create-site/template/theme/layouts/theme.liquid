@@ -5,7 +5,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% if page.title == site_name %}{{ site_name }}{% else %}{{ page.title }} | {{ site_name }}{% endif %}</title>
-    {% if settings.description != blank %}<meta name="description" content="{{ settings.description }}">{% endif %}
+    {%- comment -%}
+      A page's own description (Page Meta in the admin) when it has one,
+      otherwise the site's.
+    {%- endcomment -%}
+    {%- assign description = page.description | default: settings.description -%}
+    {% if description != blank %}<meta name="description" content="{{ description }}">{% endif %}
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/style.css">
     {%- comment -%}

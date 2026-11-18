@@ -35,6 +35,7 @@ test('A3: GET /v1/capabilities returns the agent package version, the content sc
       maxMediaUploadBytes: number;
       maxDocumentUploadBytes: number;
       mediaUploadExtensions: string[];
+      pageFields: string[];
     };
     // Asserted against the real sources of truth, not hardcoded
     // expected strings that would silently drift.
@@ -49,6 +50,12 @@ test('A3: GET /v1/capabilities returns the agent package version, the content sc
     assert.equal(body.maxDocumentUploadBytes, 25 * 1024 * 1024);
     assert.ok(body.mediaUploadExtensions.includes('.pdf'));
     assert.ok(!body.mediaUploadExtensions.includes('.svg'));
+    // Since 0.18.0: the optional fields a page may carry here, which is
+    // exactly what the page schema allows beyond what it requires.
+    const pageSchema = JSON.parse(readFileSync(new URL('../src/schemas/page.schema.json', import.meta.url), 'utf8')) as { properties: Record<string, unknown>; required: string[] };
+    const optional = Object.keys(pageSchema.properties).filter((key) => !pageSchema.required.includes(key));
+    assert.deepEqual([...body.pageFields].sort(), optional.sort());
+    assert.ok(body.pageFields.includes('description'));
   } finally {
     await app.close();
     cleanup();

@@ -19,6 +19,10 @@ export function readAgentVersion(): string {
   return packageJson.version ?? '0.0.0';
 }
 
+// Kept beside the route that reports it; test/server.test.ts checks it
+// against page.schema.json, so the two can't drift.
+export const OPTIONAL_PAGE_FIELDS = ['description', 'author', 'publishDate', 'tags'] as const;
+
 export interface CapabilitiesRouteOptions {
   maxUploadBytes: number;
   maxDocumentUploadBytes: number;
@@ -43,5 +47,11 @@ export const capabilitiesRoutes: FastifyPluginAsync<CapabilitiesRouteOptions> = 
     // uploads, so it offers images and videos only there.
     maxDocumentUploadBytes: opts.maxDocumentUploadBytes,
     mediaUploadExtensions: [...ALLOWED_UPLOAD_EXTENSIONS],
+    // Since 0.18.0. The optional fields a page may carry beside its
+    // required ones (page.schema.json). A page with a field this site
+    // doesn't know is refused, so the admin offers only the ones
+    // listed; with no list at all (an older site), only the three
+    // that every version has had: author, publishDate and tags.
+    pageFields: [...OPTIONAL_PAGE_FIELDS],
   }));
 };

@@ -129,6 +129,7 @@ Every other property is real, plain JSON Schema, validated with Ajv - there is n
 {{ section.settings.<key> }}  a setting value, per this section's own schema
 {% for html in blocksHtml %}{{ html | raw }}{% endfor %}   pre-rendered child blocks, if the section accepts blocks
 {{ page.title }}               the same built-in page envelope a layout gets - see the Layouts section below
+{{ page.description }}
 {{ page.author }}
 {{ page.publishDate }}
 {% for tag in page.tags %}{{ tag }}{% endfor %}
@@ -136,7 +137,7 @@ Every other property is real, plain JSON Schema, validated with Ajv - there is n
 
 `blocksHtml` is an array of already-rendered HTML strings (each block was rendered separately, recursively, before the section itself). It is **not** raw block data - a section template never loops over raw block settings directly, it only receives finished HTML per block and must output it with `| raw` (the engine auto-escapes `{{ }}` by default; `| raw` is the explicit, required opt-out for content that is already safe HTML). If a section doesn't use blocks, it can ignore `blocksHtml` entirely.
 
-`page` is available to block templates too (not just sections), identically. `author`/`publishDate`/`tags` are simply absent (not an error) on a page that doesn't set them - `{{ page.author }}` renders as empty string, `{% for tag in page.tags %}` loops zero times.
+`page` is available to block templates too (not just sections), identically. `description`/`author`/`publishDate`/`tags` are simply absent (not an error) on a page that doesn't set them - `{{ page.author }}` renders as empty string, `{% for tag in page.tags %}` loops zero times.
 
 ### Restricting which block types are allowed
 
@@ -220,6 +221,7 @@ Available variables in a layout template:
 ```liquid
 {{ content_for_layout | raw }}   the page's fully-rendered sections, concatenated - always needs | raw
 {{ page.title }}                 the page's title
+{{ page.description }}           the page's own description, if set (since 0.18.0) - empty string otherwise. For the head: {% assign description = page.description | default: settings.description %} uses the page's when it has one and the site's otherwise
 {{ page.author }}                the page's author, if set - empty string otherwise
 {{ page.publishDate }}           the page's publish date, if set - empty string otherwise
 {% for tag in page.tags %}...{% endfor %}   the page's tags, if any

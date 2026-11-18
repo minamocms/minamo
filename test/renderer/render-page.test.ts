@@ -125,6 +125,17 @@ test('a section template can render the page envelope (author/publishDate/tags),
   assert.ok(html.includes('Jane Doe / 2026-08-20 / newslaunch'));
 });
 
+// Since 0.18.0.
+test('a section template can render the page\'s own description, escaped, and an unset one is empty', async () => {
+  const templates: ThemeTemplates = { sections: { summary: '[{{ page.description }}]' }, blocks: {} };
+  const sections = [{ id: 'sec-1', type: 'summary', settings: {} }];
+
+  const withOne = await renderSections({ ...page(sections), description: 'Mixers & "barrows" <fast>' }, templates, engine);
+  assert.equal(withOne, '[Mixers &amp; &#34;barrows&#34; &lt;fast&gt;]');
+
+  assert.equal(await renderSections(page(sections), templates, engine), '[]');
+});
+
 test('a section template referencing the page envelope on a page with none of author/publishDate/tags set renders cleanly, not an error', async () => {
   const bylineThemeTemplates: ThemeTemplates = {
     sections: { byline: '[{{ page.author }}][{{ page.publishDate }}]{% for tag in page.tags %}{{ tag }}{% endfor %}' },

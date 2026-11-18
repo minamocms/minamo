@@ -103,6 +103,17 @@ Found reading the code (2026-11-15): the git routes resolved paths against the s
 | AM21 | `"allowEmbedding": true` in `site.config.json` lets the pages be framed elsewhere, never the API; anything but a boolean is a start-up failure | `public.test.ts` ("allowEmbedding"), `test/server-config.test.ts` ("allowEmbedding") |
 | AM22 | The container hands the site to the unprivileged `node` user and starts the server as that user, on a fresh volume and on one owned by root from before; that user can write and commit there and nowhere else | Checked by hand, 2026-11-16: an image built from the template's `Dockerfile` and `docker-entrypoint.sh`, run on a new volume and again after the volume was made root-owned. No automated test: it needs Docker |
 
+## Group AN: A page's own description
+
+Raised by the project owner (2026-11-18): the admin's Page Meta showed a description field that saved nothing, because a page had nowhere to keep one.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AN1 | A page may carry an optional `description`; an empty one is refused like any other empty field | `test/services/validation.page.test.ts :: a page may carry its own description ...` |
+| AN2 | Layouts, sections and blocks read it as `page.description`, escaped; unset, it is an empty string | `test/renderer/render-page.test.ts :: a section template can render the page's own description ...` |
+| AN3 | A new site's layout prints the page's description when it has one and the site's otherwise, once | `test/create-site/site-settings.test.ts :: a new site's layout uses a page's own description ...` |
+| AN4 | `GET /v1/capabilities` lists the optional page fields the site knows as `pageFields`, matching the page schema | `test/server.test.ts` (the capabilities test) |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

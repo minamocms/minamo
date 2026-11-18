@@ -38,6 +38,7 @@ export interface PageContent {
   published: boolean;
   layout: string;
   sections: SectionOrBlockInstance[];
+  description?: string;
   author?: string;
   publishDate?: string;
   tags?: string[];
@@ -52,13 +53,16 @@ export interface PageContent {
 // duplicating it into a settings field).
 interface PageEnvelope {
   title: string;
+  // Since 0.18.0: what the page says about itself to search engines
+  // and link previews, for a layout's <meta name="description">.
+  description?: string;
   author?: string;
   publishDate?: string;
   tags?: string[];
 }
 
 function pageEnvelope(page: PageContent): PageEnvelope {
-  return { title: page.title, author: page.author, publishDate: page.publishDate, tags: page.tags };
+  return { title: page.title, description: page.description, author: page.author, publishDate: page.publishDate, tags: page.tags };
 }
 
 // Renders one section or block, recursively rendering any nested blocks

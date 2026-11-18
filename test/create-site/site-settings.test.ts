@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bootSite } from '../../src/boot.ts';
@@ -52,6 +52,31 @@ test('a new site\'s name, accent colour, font, contact details and social links 
     assert.match(after, /1 &lt;b&gt;Example&lt;\/b&gt; St<br \/>\s*City/, 'an address is escaped before its line breaks are added');
     assert.match(after, /href="https:\/\/instagram\.com\/example" aria-label="Instagram"/);
     assert.doesNotMatch(after, /aria-label="Facebook"/, 'a link left empty is not shown');
+  } finally {
+    rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  }
+});
+
+// Since 0.18.0: a page's own description, set in the admin's Page Meta.
+test('a new site\'s layout uses a page\'s own description when it has one, and the site\'s otherwise', async () => {
+  const parent = mkdtempSync(join(tmpdir(), 'scaffold-description-'));
+  try {
+    const siteRoot = join(parent, 'site');
+    scaffoldSite(siteRoot);
+    const render = () => {
+      const booted = bootSite(siteRoot);
+      return renderPage(booted.config, booted.themeTemplates, booted.layouts, booted.engine, 'pages/index.json', 'public', resolveSiteSettings(booted.config, booted.themeSchemas));
+    };
+    const settingsPath = join(siteRoot, 'content', 'settings.json');
+    const pagePath = join(siteRoot, 'content', 'pages', 'index.json');
+    const descriptions = (html: string) => [...html.matchAll(/<meta name="description" content="([^"]*)">/g)].map((match) => match[1]);
+
+    writeFileSync(settingsPath, JSON.stringify({ schemaVersion: 7, settings: { description: 'The whole site.' } }));
+    assert.deepEqual(descriptions(await render()), ['The whole site.']);
+
+    const page = JSON.parse(readFileSync(pagePath, 'utf8')) as Record<string, unknown>;
+    writeFileSync(pagePath, JSON.stringify({ ...page, description: 'Just this page, "quoted".' }));
+    assert.deepEqual(descriptions(await render()), ['Just this page, &#34;quoted&#34;.']);
   } finally {
     rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }

@@ -4,6 +4,13 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-18
+
+### Added
+
+- **A page can have its own description.** An optional `description` beside `author`, `publishDate` and `tags`, for what the page says about itself to search engines and in link previews. Layouts, sections and blocks read it as `{{ page.description }}`; a page without one renders it as an empty string. New sites' layout uses the page's description when it has one and the site's otherwise. An existing theme shows nothing new until its layout prints it: `{% assign description = page.description | default: settings.description %}` is the line to add, with your own site setting's name.
+- **`GET /v1/capabilities` lists the optional page fields a site knows** as `pageFields`. A page carrying a field the site doesn't know is refused, so an admin can offer only the fields listed. A site older than this has no list, and knows `author`, `publishDate` and `tags`.
+
 ## [0.17.0] - 2026-11-16
 
 ### Security
